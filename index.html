@@ -74,16 +74,15 @@ async function registerVendor(){
  finally{$("registerBtn").disabled=false}
 }
 async function login(){
- const e=$("email").value.trim().toLowerCase(),p=$("password").value;if(!e||!p)return msg("am","Enter your email and password.");
+ const e=$("email").value.trim().toLowerCase(),p=$("password").value;
+ if(!e||!p)return msg("am","Enter your email and password.");
  $("loginBtn").disabled=true;msg("am","Signing in...",true);
  try{
-  const r=await fetch(SUPABASE_URL+"/functions/v1/auth-gateway",{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},body:JSON.stringify({action:"login",email:e,password:p})});
-  let d=null;try{d=await r.json()}catch(_){}
-  if(!r.ok||!d||!d.access_token)throw new Error((d&&d.error_description)||(d&&d.msg)||(d&&d.error)||(d&&d.message)||"Email or password is incorrect.");
-  const ss=await sb.auth.setSession({access_token:d.access_token,refresh_token:d.refresh_token});
-  if(ss.error)throw ss.error;
-  await start(ss.data.user);
- }catch(err){console.error("Login error",err);msg("am","Login failed: "+(err&&err.message?err.message:"Authentication service unavailable."))}
+  const {data,error}=await sb.auth.signInWithPassword({email:e,password:p});
+  if(error)throw error;
+  if(!data.user)throw new Error("Sign-in did not return a user.");
+  await start(data.user);
+ }catch(err){console.error("Login error",err);msg("am","Login failed: "+(err&&err.message?err.message:"Email or password is incorrect."))}
  finally{$("loginBtn").disabled=false}
 }
 async function forgot(){
@@ -91,65 +90,10 @@ async function forgot(){
  if(!e)return msg("am","Enter your email first.");
  msg("am","Sending password reset email...",true);
  try{
-  const r=await fetch(SUPABASE_URL+"/functions/v1/auth-gateway",{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},body:JSON.stringify({action:"recover",email:e,redirect_to:"https://shaunakkseth234-afk.github.io/luvkkush-silk-mills/"})});
-  let d=null;try{d=await r.json()}catch(_){}
-  if(!r.ok)throw new Error((d&&d.error_description)||(d&&d.msg)||(d&&d.error)||(d&&d.message)||"Password reset request failed.");
+  const {error}=await sb.auth.resetPasswordForEmail(e,{redirectTo:"https://shaunakkseth234-afk.github.io/luvkkush-silk-mills/"});
+  if(error)throw error;
   msg("am","If this email is registered, a password reset email has been requested. Check Inbox and Spam.",true);
  }catch(err){console.error("Password reset error",err);msg("am","Password reset failed: "+(err&&err.message?err.message:"Email service unavailable."))}
-}
-async function start(u){
-  me=u;
-  const pr=await sb.from("profiles").select("*").eq("id",u.id).maybeSingle();
-  if(pr.error) throw pr.error;
-  if(pr.data){
-    profile=pr.data;
-  }else{
-    const fallback={
-      id:u.id,
-      full_name:(u.user_metadata&&u.user_metadata.full_name)||u.email.split("@")[0],
-      role:(u.email||"").toLowerCase()==="luv.seth@gmail.com"?"admin":"vendor",
-      phone:(u.user_metadata&&u.user_metadata.phone)||"",
-      country_code:(u.user_metadata&&u.user_metadata.country_code)||"",
-      phone_e164:(u.user_metadata&&u.user_metadata.phone_e164)||""
-    };
-    const ins=await sb.from("profiles").insert(fallback).select("*").single();
-    if(ins.error) throw ins.error;
-    profile=ins.data;
-  }
-  $("auth").classList.add("hide");
-  $("register").classList.add("hide");
-  $("app").classList.remove("hide");
-  $("identity").textContent=(profile.full_name||u.email)+" — "+profile.role;
-  if(profile.role==="admin"){
-    $("adminPanel").classList.remove("hide");
-    $("vendorPanel").classList.add("hide");
-    await refreshProducts();
-    await refreshOrders();
-  }else{
-    $("adminPanel").classList.add("hide");
-    $("vendorPanel").classList.remove("hide");
-    $("vname").value=profile.full_name||"";
-    $("vphone").value=profile.phone||"";
-    await refreshProducts();
-    await refreshMine();
-  }
-}
-async function logout(){
-  await sb.auth.signOut();
-  me=null; profile=null; cart=[]; drawCart();
-  $("app").classList.add("hide");
-  $("auth").classList.remove("hide");
-  $("register").classList.add("hide");
-  $("resetBox").classList.add("hide");
-  msg("am","");
-}
-async function changePassword(){
-  const p=$("newPassword").value;
-  if(!p||p.length<6)return msg("resetMsg","New password must be at least 6 characters.");
-  const r=await sb.auth.updateUser({password:p});
-  if(r.error)return msg("resetMsg",r.error.message);
-  $("newPassword").value="";
-  msg("resetMsg","Password changed successfully. You can now sign in with your new password.",true);
 }
 async function refreshProducts(){
  const r=await sb.from("products").select("*").order("design_number");if(r.error){console.error(r.error);return}plist=r.data||[];
