@@ -173,30 +173,22 @@ async function placeOrder(){
  try{
   const sessionResult=await sb.auth.getSession();
   if(sessionResult.error)throw sessionResult.error;
-  const token=sessionResult.data?.session?.access_token;
-  if(!token)throw new Error("Your login session has expired. Please sign in again.");
+  if(!sessionResult.data?.session)throw new Error("Your login session has expired. Please sign in again.");
   const payload={
    p_vendor_name:name,
    p_vendor_phone:$("vphone").value.trim(),
    p_items:cart.map(x=>({product_id:x.product_id,meters:Number(x.meters)}))
   };
-  const response=await fetch(SUPABASE_URL+"/rest/v1/rpc/place_order",{
-   method:"POST",
-   headers:{
-    "apikey":SUPABASE_KEY,
-    "Authorization":"Bearer "+token,
-    "Content-Type":"application/json",
-    "Accept":"application/json"
-   },
-   body:JSON.stringify(payload)
-  });
-  let body=null;try{body=await response.json()}catch(_){}
-  if(!response.ok){
-   const detail=body?.message||body?.error_description||body?.hint||body?.details||body?.error;
-   throw new Error(detail||("Order service returned HTTP "+response.status));
+  const {data:d,error:invokeError}=await sb.functions.invoke("place-order",{body:payload});
+  if(invokeError){
+   let detail=invokeError.message||"Order service unavailable.";
+   if(invokeError.context){
+    try{const b=await invokeError.context.json();if(b?.error)detail=b.error}catch(_){}
+   }
+   throw new Error(detail);
   }
-  const orderId=typeof body==="number"?body:(Array.isArray(body)?body[0]:body);
-  if(!orderId)throw new Error("The order service did not return an invoice number.");
+  if(!d?.ok)throw new Error(d?.error||"The order service did not return an order number.");
+  const orderId=d.order_id;
   const o=await sb.from("orders").select("*").eq("id",orderId).single();
   if(o.error)throw new Error("Order was created, but the invoice could not be loaded: "+o.error.message);
   cart=[];drawCart();await refreshProducts();await refreshMine();
@@ -204,7 +196,7 @@ async function placeOrder(){
   openInvoice(o.data.id);
  }catch(err){
   console.error("Place order error",err);
-  msg("vm","Order failed: "+(err&&err.message?err.message:"Please try again.")); 
+  msg("vm","Order failed: "+(err&&err.message?err.message:"Please try again."));
  }finally{
   if(btn)btn.disabled=false;
  }
