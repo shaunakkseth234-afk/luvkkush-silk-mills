@@ -13,6 +13,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;bord
 @media(max-width:720px){main{padding:12px}.grid,.grid2{grid-template-columns:1fr}.card{padding:14px}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4"></script>
+<script>if(!window.supabase){document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.57.4"><\/script>')}</script>
 </head><body>
 <header>LUVKKUSH SILK MILLS PVT LTD <small> — Textile Order & Billing Portal</small></header>
 <main>
@@ -76,16 +77,21 @@ async function login(){
  catch(err){console.error(err);msg("am","Login failed: "+(err&&err.message?err.message:"Unable to reach Supabase Auth."))}
  finally{$("loginBtn").disabled=false}
 }
-async function forgot(){const e=$("email").value.trim().toLowerCase();if(!e)return msg("am","Enter your email first.");const r=await sb.auth.resetPasswordForEmail(e);msg("am",r.error?"Password reset failed: "+r.error.message:"Password reset email sent.",!r.error)}
+async function forgot(){const e=$("email").value.trim().toLowerCase();if(!e)return msg("am","Enter your email first.");const r=await sb.auth.resetPasswordForEmail(e,{redirectTo:window.location.origin+window.location.pathname});msg("am",r.error?"Password reset failed: "+r.error.message:"Password reset email sent. Check your email.",!r.error)}
 async function changePassword(){const p=$("newPassword").value;if(p.length<6)return msg("resetMsg","Password must be at least 6 characters.");const r=await sb.auth.updateUser({password:p});msg("resetMsg",r.error?r.error.message:"Password changed successfully.",!r.error)}
 async function logout(){await sb.auth.signOut();location.reload()}
 async function start(u){
- me=u;$("auth").classList.add("hide");$("register").classList.add("hide");$("app").classList.remove("hide");$("identity").textContent=u.email||"";
- const meta=u.user_metadata||{};
- const admin=String(u.email||"").toLowerCase()==="luv.seth@gmail.com";
- const payload={id:u.id,full_name:meta.full_name||String(u.email||"").split("@")[0],role:admin?"admin":"vendor",phone:meta.phone||null,country_code:meta.country_code||null,phone_e164:meta.phone_e164||null};
- let r=await sb.from("profiles").upsert(payload,{onConflict:"id"}).select("*").single();
- if(r.error){console.error(r.error);$("app").classList.add("hide");$("auth").classList.remove("hide");return msg("am","Account created, but your profile could not be initialized: "+r.error.message);}
+ me=u;
+ $("auth").classList.add("hide");$("register").classList.add("hide");$("app").classList.remove("hide");
+ $("identity").textContent=u.email||"";
+ let r=await sb.from("profiles").select("*").eq("id",u.id).maybeSingle();
+ if(r.error){console.error("Profile lookup failed",r.error);$("app").classList.add("hide");$("auth").classList.remove("hide");return msg("am","Login succeeded, but the profile could not be loaded: "+r.error.message);}
+ if(!r.data){
+  const meta=u.user_metadata||{};
+  const payload={id:u.id,full_name:meta.full_name||String(u.email||"").split("@")[0],role:"vendor",phone:meta.phone||null,country_code:meta.country_code||null,phone_e164:meta.phone_e164||null};
+  r=await sb.from("profiles").insert(payload).select("*").single();
+  if(r.error){console.error("Profile creation failed",r.error);$("app").classList.add("hide");$("auth").classList.remove("hide");return msg("am","Login succeeded, but your profile could not be created: "+r.error.message);}
+ }
  profile=r.data;
  if(profile.role==="admin"){$("adminPanel").classList.remove("hide");$("vendorPanel").classList.add("hide");await refreshProducts();await refreshOrders()}
  else{$("vendorPanel").classList.remove("hide");$("adminPanel").classList.add("hide");$("vname").value=profile.full_name||"";$("vphone").value=profile.phone||"";await refreshProducts();await refreshMine()}
