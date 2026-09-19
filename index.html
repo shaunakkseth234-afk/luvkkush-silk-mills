@@ -97,6 +97,60 @@ async function forgot(){
   msg("am","If this email is registered, a password reset email has been requested. Check Inbox and Spam.",true);
  }catch(err){console.error("Password reset error",err);msg("am","Password reset failed: "+(err&&err.message?err.message:"Email service unavailable."))}
 }
+async function start(u){
+  me=u;
+  const pr=await sb.from("profiles").select("*").eq("id",u.id).maybeSingle();
+  if(pr.error) throw pr.error;
+  if(pr.data){
+    profile=pr.data;
+  }else{
+    const fallback={
+      id:u.id,
+      full_name:(u.user_metadata&&u.user_metadata.full_name)||u.email.split("@")[0],
+      role:(u.email||"").toLowerCase()==="luv.seth@gmail.com"?"admin":"vendor",
+      phone:(u.user_metadata&&u.user_metadata.phone)||"",
+      country_code:(u.user_metadata&&u.user_metadata.country_code)||"",
+      phone_e164:(u.user_metadata&&u.user_metadata.phone_e164)||""
+    };
+    const ins=await sb.from("profiles").insert(fallback).select("*").single();
+    if(ins.error) throw ins.error;
+    profile=ins.data;
+  }
+  $("auth").classList.add("hide");
+  $("register").classList.add("hide");
+  $("app").classList.remove("hide");
+  $("identity").textContent=(profile.full_name||u.email)+" — "+profile.role;
+  if(profile.role==="admin"){
+    $("adminPanel").classList.remove("hide");
+    $("vendorPanel").classList.add("hide");
+    await refreshProducts();
+    await refreshOrders();
+  }else{
+    $("adminPanel").classList.add("hide");
+    $("vendorPanel").classList.remove("hide");
+    $("vname").value=profile.full_name||"";
+    $("vphone").value=profile.phone||"";
+    await refreshProducts();
+    await refreshMine();
+  }
+}
+async function logout(){
+  await sb.auth.signOut();
+  me=null; profile=null; cart=[]; drawCart();
+  $("app").classList.add("hide");
+  $("auth").classList.remove("hide");
+  $("register").classList.add("hide");
+  $("resetBox").classList.add("hide");
+  msg("am","");
+}
+async function changePassword(){
+  const p=$("newPassword").value;
+  if(!p||p.length<6)return msg("resetMsg","New password must be at least 6 characters.");
+  const r=await sb.auth.updateUser({password:p});
+  if(r.error)return msg("resetMsg",r.error.message);
+  $("newPassword").value="";
+  msg("resetMsg","Password changed successfully. You can now sign in with your new password.",true);
+}
 async function refreshProducts(){
  const r=await sb.from("products").select("*").order("design_number");if(r.error){console.error(r.error);return}plist=r.data||[];
  $("productsRows").innerHTML=plist.map(p=>'<tr><td>'+esc(p.design_number)+'</td><td>'+esc(p.design_name)+'</td><td>'+esc(p.colour)+'</td><td>₹'+money(p.rate)+'</td><td>'+p.trade_discount+'%</td><td>'+p.cash_discount+'%</td><td>'+money(p.stock_meters)+' m</td><td><button class="secondary" onclick="editProduct('+p.id+')">Edit</button><button class="danger" onclick="deleteProduct('+p.id+')">Delete</button></td></tr>').join("")||'<tr><td colspan="8">No designs.</td></tr>';
