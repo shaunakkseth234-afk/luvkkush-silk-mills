@@ -1,0 +1,71 @@
+name: Route browser auth through gateway
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: "!contains(github.event.head_commit.message, '[gateway-auth]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inject gateway authentication handlers
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          marker = '/* gateway-auth-v1 */'
+          if marker not in s:
+              code = r'''/* gateway-auth-v1 */
+          async function login(){
+            const e=$("email").value.trim().toLowerCase(), p=$("password").value;
+            if(!e||!p)return msg("am","Enter your email and password.");
+            try{
+              const r=await sb.functions.invoke("auth-gateway",{body:{action:"login",email:e,password:p}});
+              const d=r.data||{};
+              if(r.error)return msg("am","Login failed: "+r.error.message);
+              if(d.error||d.error_description||d.msg)return msg("am","Login failed: "+(d.error_description||d.msg||d.error));
+              if(!d.access_token||!d.refresh_token)return msg("am","Login failed: authentication did not return a session.");
+              const ss=await sb.auth.setSession({access_token:d.access_token,refresh_token:d.refresh_token});
+              if(ss.error)return msg("am","Login failed: "+ss.error.message);
+              await start(ss.data.user);
+            }catch(err){console.error(err);msg("am","Login failed: "+(err?.message||"Authentication connection error."));}
+          }
+          async function signup(){
+            const n=$("rn").value.trim(),cc=$("rcc").value,p=$("rp").value.replace(/\D/g,"").trim(),e=$("re").value.trim().toLowerCase(),w=$("rw").value;
+            if(!n||!p||!e||!w)return msg("rm","Please complete all fields.");
+            if(w.length<6)return msg("rm","Password must be at least 6 characters.");
+            const phoneE164=cc+p;
+            try{
+              const r=await sb.functions.invoke("auth-gateway",{body:{action:"signup",full_name:n,country_code:cc,phone:p,phone_e164:phoneE164,email:e,password:w}});
+              const d=r.data||{};
+              if(r.error)return msg("rm","Registration failed: "+r.error.message);
+              if(d.error||d.error_description||d.msg)return msg("rm","Registration failed: "+(d.error_description||d.msg||d.error));
+              if(d.access_token&&d.refresh_token){
+                const ss=await sb.auth.setSession({access_token:d.access_token,refresh_token:d.refresh_token});
+                if(ss.error)return msg("rm","Account created, but sign-in failed: "+ss.error.message);
+                await start(ss.data.user);
+              }else{
+                msg("rm","Account created. Please check your email for confirmation, then sign in.",true);
+                back();
+              }
+            }catch(err){console.error(err);msg("rm","Registration failed: "+(err?.message||"Authentication connection error."));}
+          }
+          '''
+              s = s.replace('</script>', code + '\n</script>')
+              p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit gateway patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Use auth gateway for browser registration and login [gateway-auth]"
+          git push
