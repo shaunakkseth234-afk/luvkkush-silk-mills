@@ -64,12 +64,9 @@ async function registerVendor(){
   const r=await fetch(SUPABASE_URL+"/functions/v1/vendor-register",{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},body:JSON.stringify({full_name:n,phone:p,country_code:cc,email:e,password:w})});
   let d=null;try{d=await r.json()}catch(_){}
   if(!r.ok||!d||!d.ok)throw new Error((d&&d.error)||"Registration service unavailable.");
-  const lr=await fetch(SUPABASE_URL+"/functions/v1/auth-gateway",{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},body:JSON.stringify({action:"login",email:e,password:w})});
-  let ld=null;try{ld=await lr.json()}catch(_){}
-  if(!lr.ok||!ld||!ld.access_token)throw new Error("Account was created, but automatic sign-in failed. Please use Sign in with the email and password you just registered.");
-  const ss=await sb.auth.setSession({access_token:ld.access_token,refresh_token:ld.refresh_token});
-  if(ss.error)throw ss.error;
-  await start(ss.data.user);
+  const {data,error}=await sb.auth.signInWithPassword({email:e,password:w});
+  if(error)throw new Error("Account was created, but automatic sign-in failed: "+error.message);
+  await start(data.user);
  }catch(err){console.error("Registration error",err);msg("rm","Registration failed: "+(err&&err.message?err.message:"Registration service unavailable."))}
  finally{$("registerBtn").disabled=false}
 }
