@@ -92,6 +92,58 @@ async function forgot(){
   msg("am","If this email is registered, a password reset email has been requested. Check Inbox and Spam.",true);
  }catch(err){console.error("Password reset error",err);msg("am","Password reset failed: "+(err&&err.message?err.message:"Email service unavailable."))}
 }
+async function start(u){
+ me=u;
+ const r=await sb.from("profiles").select("*").eq("id",u.id).maybeSingle();
+ if(r.error)throw r.error;
+ if(!r.data){
+  const role=u.email&&u.email.toLowerCase()==="luv.seth@gmail.com"?"admin":"vendor";
+  const p=await sb.from("profiles").upsert({id:u.id,full_name:u.user_metadata?.full_name||u.email,role:role},{onConflict:"id"}).select("*").single();
+  if(p.error)throw p.error;
+  profile=p.data;
+ }else{
+  profile=r.data;
+ }
+ $("auth").classList.add("hide");
+ $("register").classList.add("hide");
+ $("app").classList.remove("hide");
+ $("identity").textContent=(profile.full_name||u.email)+" — "+profile.role;
+ $("adminPanel").classList.toggle("hide",profile.role!=="admin");
+ $("vendorPanel").classList.toggle("hide",profile.role!=="vendor");
+ if(profile.role==="vendor"){
+  $("vname").value=profile.full_name||"";
+  $("vphone").value=profile.phone||profile.phone_e164||"";
+  await refreshProducts();
+  await refreshMine();
+ }else{
+  await refreshProducts();
+  await refreshOrders();
+ }
+}
+async function logout(){
+ await sb.auth.signOut();
+ me=null;profile=null;plist=[];cart=[];editing=null;
+ $("app").classList.add("hide");
+ $("adminPanel").classList.add("hide");
+ $("vendorPanel").classList.add("hide");
+ $("auth").classList.remove("hide");
+ $("register").classList.add("hide");
+ $("resetBox").classList.add("hide");
+ msg("am","");
+ msg("rm","");
+}
+async function changePassword(){
+ const p=$("newPassword").value;
+ if(!p||p.length<6)return msg("resetMsg","Password must be at least 6 characters.");
+ const r=await sb.auth.updateUser({password:p});
+ if(r.error)return msg("resetMsg","Password change failed: "+r.error.message);
+ $("newPassword").value="";
+ $("resetBox").classList.add("hide");
+ msg("am","Password changed successfully. You can now sign in.",true);
+ await sb.auth.signOut();
+ $("app").classList.add("hide");
+ $("auth").classList.remove("hide");
+}
 async function refreshProducts(){
  const r=await sb.from("products").select("*").order("design_number");if(r.error){console.error(r.error);return}plist=r.data||[];
  $("productsRows").innerHTML=plist.map(p=>'<tr><td>'+esc(p.design_number)+'</td><td>'+esc(p.design_name)+'</td><td>'+esc(p.colour)+'</td><td>₹'+money(p.rate)+'</td><td>'+p.trade_discount+'%</td><td>'+p.cash_discount+'%</td><td>'+money(p.stock_meters)+' m</td><td><button class="secondary" onclick="editProduct('+p.id+')">Edit</button><button class="danger" onclick="deleteProduct('+p.id+')">Delete</button></td></tr>').join("")||'<tr><td colspan="8">No designs.</td></tr>';
