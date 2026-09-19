@@ -164,11 +164,50 @@ function drawCart(){$("cartRows").innerHTML=cart.map((x,i)=>'<tr><td>'+esc(x.des
 function removeItem(i){cart.splice(i,1);drawCart()}function clearCart(){cart=[];drawCart()}
 function addItem(){const p=plist.find(x=>String(x.id)===$("productSelect").value),q=Number($("qty").value);if(!p)return msg("vm","Select a design.");if(!Number.isFinite(q)||q<=0)return msg("vm","Enter a valid number of metres.");const e=cart.find(x=>x.product_id===p.id),n=(e?e.meters:0)+q;if(n>Number(p.stock_meters))return msg("vm","Metres exceed available fabric stock.");if(e)e.meters=n;else cart.push({product_id:p.id,design_number:p.design_number,design_name:p.design_name,colour:p.colour,meters:q,rate:Number(p.rate),trade:Number(p.trade_discount),cash:Number(p.cash_discount)});drawCart();msg("vm","")}
 async function placeOrder(){
- if(!cart.length)return msg("vm","Add at least one design.");const name=$("vname").value.trim();if(!name)return msg("vm","Enter vendor name.");
- const r=await sb.rpc("place_order",{p_vendor_name:name,p_vendor_phone:$("vphone").value.trim(),p_items:cart.map(x=>({product_id:x.product_id,meters:x.meters}))});
- if(r.error)return msg("vm","Order failed: "+r.error.message);
- const o=await sb.from("orders").select("*").eq("id",r.data).single();if(o.error)return msg("vm","Order placed but invoice could not be loaded: "+o.error.message);
- cart=[];drawCart();await refreshProducts();await refreshMine();msg("vm","Order "+o.data.invoice_number+" placed successfully.",true);openInvoice(o.data.id)
+ if(!cart.length)return msg("vm","Add at least one design.");
+ const name=$("vname").value.trim();
+ if(!name)return msg("vm","Enter vendor name.");
+ const btn=document.querySelector('#vendorPanel button.ok[onclick="placeOrder()"]');
+ if(btn)btn.disabled=true;
+ msg("vm","Placing order securely...",true);
+ try{
+  const sessionResult=await sb.auth.getSession();
+  if(sessionResult.error)throw sessionResult.error;
+  const token=sessionResult.data?.session?.access_token;
+  if(!token)throw new Error("Your login session has expired. Please sign in again.");
+  const payload={
+   p_vendor_name:name,
+   p_vendor_phone:$("vphone").value.trim(),
+   p_items:cart.map(x=>({product_id:x.product_id,meters:Number(x.meters)}))
+  };
+  const response=await fetch(SUPABASE_URL+"/rest/v1/rpc/place_order",{
+   method:"POST",
+   headers:{
+    "apikey":SUPABASE_KEY,
+    "Authorization":"Bearer "+token,
+    "Content-Type":"application/json",
+    "Accept":"application/json"
+   },
+   body:JSON.stringify(payload)
+  });
+  let body=null;try{body=await response.json()}catch(_){}
+  if(!response.ok){
+   const detail=body?.message||body?.error_description||body?.hint||body?.details||body?.error;
+   throw new Error(detail||("Order service returned HTTP "+response.status));
+  }
+  const orderId=typeof body==="number"?body:(Array.isArray(body)?body[0]:body);
+  if(!orderId)throw new Error("The order service did not return an invoice number.");
+  const o=await sb.from("orders").select("*").eq("id",orderId).single();
+  if(o.error)throw new Error("Order was created, but the invoice could not be loaded: "+o.error.message);
+  cart=[];drawCart();await refreshProducts();await refreshMine();
+  msg("vm","Order "+o.data.invoice_number+" placed successfully.",true);
+  openInvoice(o.data.id);
+ }catch(err){
+  console.error("Place order error",err);
+  msg("vm","Order failed: "+(err&&err.message?err.message:"Please try again.")); 
+ }finally{
+  if(btn)btn.disabled=false;
+ }
 }
 async function refreshOrders(){const r=await sb.from("orders").select("*").order("created_at",{ascending:false}).limit(200);if(r.error)return msg("pm",r.error.message);$("orderCount").textContent=(r.data||[]).length;$("ordersRows").innerHTML=(r.data||[]).map(o=>{let a='<button class="secondary" onclick="openInvoice('+o.id+')">Invoice</button>';if(o.status==="pending")a+='<button class="ok" onclick="setStatus('+o.id+',\'confirmed\')">Confirm</button><button class="danger" onclick="setStatus('+o.id+',\'cancelled\')">Cancel</button>';return '<tr><td>'+esc(o.invoice_number)+'</td><td>'+esc(o.vendor_name)+'</td><td>₹'+money(o.total)+'</td><td><span class="pill">'+esc(o.status)+'</span></td><td>'+new Date(o.created_at).toLocaleString()+'</td><td>'+a+'</td></tr>'}).join("")||'<tr><td colspan="6">No orders.</td></tr>'}
 async function refreshMine(){const r=await sb.from("orders").select("*").eq("vendor_id",me.id).order("created_at",{ascending:false});if(r.error)return;$("myRows").innerHTML=(r.data||[]).map(o=>'<tr><td>'+esc(o.invoice_number)+'</td><td>₹'+money(o.total)+'</td><td>'+esc(o.status)+'</td><td>'+new Date(o.created_at).toLocaleString()+'</td><td><button class="secondary" onclick="openInvoice('+o.id+')">Invoice</button></td></tr>').join("")||'<tr><td colspan="5">No orders yet.</td></tr>'}
