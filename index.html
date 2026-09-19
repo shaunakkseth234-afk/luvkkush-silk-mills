@@ -12,8 +12,8 @@ button{border:0;border-radius:9px;padding:10px 14px;margin:4px 4px 4px 0;font-we
 table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;border-bottom:1px solid #e5e7eb;font-size:14px}th{background:#f8fafc}.scroll{overflow:auto}.muted{color:#64748b}.stat{font-size:25px;font-weight:800}.pill{padding:4px 8px;border-radius:99px;background:#eef2ff;font-size:12px;font-weight:700}
 @media(max-width:720px){main{padding:12px}.grid,.grid2{grid-template-columns:1fr}.card{padding:14px}}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4"></script>
-<script>if(!window.supabase){document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.57.4"><\/script>')}</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.102.0"></script>
+<script>if(!window.supabase){document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.102.0"><\/script>')}</script>
 </head><body>
 <header>LUVKKUSH SILK MILLS PVT LTD <small> — Textile Order & Billing Portal</small></header>
 <main>
@@ -63,56 +63,39 @@ async function registerVendor(){
  try{
   const r=await fetch(SUPABASE_URL+"/functions/v1/vendor-register",{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},body:JSON.stringify({full_name:n,phone:p,country_code:cc,email:e,password:w})});
   let d=null;try{d=await r.json()}catch(_){}
-  if(!r.ok||!d||!d.ok)return msg("rm","Registration failed: "+((d&&d.error)||"Registration service unavailable."));
-  const s=await sb.auth.signInWithPassword({email:e,password:w});
-  if(s.error)return msg("rm","Account created. Please sign in with the email and password you just registered.",true);
-  await start(s.data.user);
- }catch(err){console.error("Registration exception",err);msg("rm","Registration failed: "+(err&&err.message?err.message:"Registration service unavailable."))}
+  if(!r.ok||!d||!d.ok)throw new Error((d&&d.error)||"Registration service unavailable.");
+  const lr=await fetch(SUPABASE_URL+"/functions/v1/auth-gateway",{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},body:JSON.stringify({action:"login",email:e,password:w})});
+  let ld=null;try{ld=await lr.json()}catch(_){}
+  if(!lr.ok||!ld||!ld.access_token)throw new Error("Account was created, but automatic sign-in failed. Please use Sign in with the email and password you just registered.");
+  const ss=await sb.auth.setSession({access_token:ld.access_token,refresh_token:ld.refresh_token});
+  if(ss.error)throw ss.error;
+  await start(ss.data.user);
+ }catch(err){console.error("Registration error",err);msg("rm","Registration failed: "+(err&&err.message?err.message:"Registration service unavailable."))}
  finally{$("registerBtn").disabled=false}
 }
 async function login(){
  const e=$("email").value.trim().toLowerCase(),p=$("password").value;if(!e||!p)return msg("am","Enter your email and password.");
  $("loginBtn").disabled=true;msg("am","Signing in...",true);
  try{
-  if(!window.supabase||!sb)throw new Error("Authentication library did not load. Please refresh the page.");
-  let r=await sb.auth.signInWithPassword({email:e,password:p});
-  if(r.error){
-   console.warn("Supabase JS login failed; trying direct Auth endpoint",r.error);
-   const raw=await fetch(SUPABASE_URL+"/auth/v1/token?grant_type=password",{
-    method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},
-    body:JSON.stringify({email:e,password:p})
-   });
-   let d=null;try{d=await raw.json()}catch(_){}
-   if(!raw.ok||!d||!d.access_token)throw new Error((d&&d.error_description)||(d&&d.msg)||(d&&d.message)||r.error.message||"Authentication failed.");
-   const ss=await sb.auth.setSession({access_token:d.access_token,refresh_token:d.refresh_token});
-   if(ss.error)throw ss.error;
-   r={data:{user:ss.data.user}};
-  }
-  if(!r.data||!r.data.user)throw new Error("Authentication succeeded but no user session was returned.");
-  await start(r.data.user);
- }catch(err){
-  console.error("Login error",err);
-  msg("am","Login failed: "+(err&&err.message?err.message:"Unable to reach Supabase Auth."));
- }finally{$("loginBtn").disabled=false}
+  const r=await fetch(SUPABASE_URL+"/functions/v1/auth-gateway",{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},body:JSON.stringify({action:"login",email:e,password:p})});
+  let d=null;try{d=await r.json()}catch(_){}
+  if(!r.ok||!d||!d.access_token)throw new Error((d&&d.error_description)||(d&&d.msg)||(d&&d.error)||(d&&d.message)||"Email or password is incorrect.");
+  const ss=await sb.auth.setSession({access_token:d.access_token,refresh_token:d.refresh_token});
+  if(ss.error)throw ss.error;
+  await start(ss.data.user);
+ }catch(err){console.error("Login error",err);msg("am","Login failed: "+(err&&err.message?err.message:"Authentication service unavailable."))}
+ finally{$("loginBtn").disabled=false}
 }
-async function forgot(){const e=$("email").value.trim().toLowerCase();if(!e)return msg("am","Enter your email first.");const r=await sb.auth.resetPasswordForEmail(e,{redirectTo:window.location.origin+window.location.pathname});msg("am",r.error?"Password reset failed: "+r.error.message:"Password reset email sent. Check your email.",!r.error)}
-async function changePassword(){const p=$("newPassword").value;if(p.length<6)return msg("resetMsg","Password must be at least 6 characters.");const r=await sb.auth.updateUser({password:p});msg("resetMsg",r.error?r.error.message:"Password changed successfully.",!r.error)}
-async function logout(){await sb.auth.signOut();location.reload()}
-async function start(u){
- me=u;
- $("auth").classList.add("hide");$("register").classList.add("hide");$("app").classList.remove("hide");
- $("identity").textContent=u.email||"";
- let r=await sb.from("profiles").select("*").eq("id",u.id).maybeSingle();
- if(r.error){console.error("Profile lookup failed",r.error);$("app").classList.add("hide");$("auth").classList.remove("hide");return msg("am","Login succeeded, but the profile could not be loaded: "+r.error.message);}
- if(!r.data){
-  const meta=u.user_metadata||{};
-  const payload={id:u.id,full_name:meta.full_name||String(u.email||"").split("@")[0],role:"vendor",phone:meta.phone||null,country_code:meta.country_code||null,phone_e164:meta.phone_e164||null};
-  r=await sb.from("profiles").insert(payload).select("*").single();
-  if(r.error){console.error("Profile creation failed",r.error);$("app").classList.add("hide");$("auth").classList.remove("hide");return msg("am","Login succeeded, but your profile could not be created: "+r.error.message);}
- }
- profile=r.data;
- if(profile.role==="admin"){$("adminPanel").classList.remove("hide");$("vendorPanel").classList.add("hide");await refreshProducts();await refreshOrders()}
- else{$("vendorPanel").classList.remove("hide");$("adminPanel").classList.add("hide");$("vname").value=profile.full_name||"";$("vphone").value=profile.phone||"";await refreshProducts();await refreshMine()}
+async function forgot(){
+ const e=$("email").value.trim().toLowerCase();
+ if(!e)return msg("am","Enter your email first.");
+ msg("am","Sending password reset email...",true);
+ try{
+  const r=await fetch(SUPABASE_URL+"/functions/v1/auth-gateway",{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},body:JSON.stringify({action:"recover",email:e,redirect_to:"https://shaunakkseth234-afk.github.io/luvkkush-silk-mills/"})});
+  let d=null;try{d=await r.json()}catch(_){}
+  if(!r.ok)throw new Error((d&&d.error_description)||(d&&d.msg)||(d&&d.error)||(d&&d.message)||"Password reset request failed.");
+  msg("am","If this email is registered, a password reset email has been requested. Check Inbox and Spam.",true);
+ }catch(err){console.error("Password reset error",err);msg("am","Password reset failed: "+(err&&err.message?err.message:"Email service unavailable."))}
 }
 async function refreshProducts(){
  const r=await sb.from("products").select("*").order("design_number");if(r.error){console.error(r.error);return}plist=r.data||[];
