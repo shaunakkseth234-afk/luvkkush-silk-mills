@@ -1,171 +1,231 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LUVKKUSH SILK MILLS PVT LTD</title><style>body{font-family:system-ui,Arial;margin:0;background:#f8fafc;color:#18212b}header{background:#111827;color:#fff;padding:18px;font-weight:800}.wrap{max-width:1100px;margin:auto;padding:20px}.card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;margin-bottom:16px}input,select{width:100%;box-sizing:border-box;padding:11px;margin:5px 0 12px;border:1px solid #cbd5e1;border-radius:9px}button{padding:10px 14px;border:0;border-radius:9px;background:#7c3aed;color:#fff;font-weight:700;margin:4px;cursor:pointer}.secondary{background:#e2e8f0;color:#18212b}.danger{background:#dc2626}.ok{background:#15803d}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;border-bottom:1px solid #e2e8f0;font-size:14px}th{background:#f1f5f9}.hide{display:none}.center{max-width:460px;margin:40px auto}.msg{padding:10px;border-radius:9px;background:#f1f5f9;margin:8px 0}.err{background:#fee2e2;color:#991b1b}.good{background:#dcfce7;color:#166534}@media(max-width:700px){.grid,.grid2{grid-template-columns:1fr}.wrap{padding:12px}}</style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4">/* gateway-auth-v1 */
-async function login(){
-  const e=$("email").value.trim().toLowerCase(), p=$("password").value;
-  if(!e||!p)return msg("am","Enter your email and password.");
-  try{
-    const r=await sb.functions.invoke("auth-gateway",{body:{action:"login",email:e,password:p}});
-    const d=r.data||{};
-    if(r.error)return msg("am","Login failed: "+r.error.message);
-    if(d.error||d.error_description||d.msg)return msg("am","Login failed: "+(d.error_description||d.msg||d.error));
-    if(!d.access_token||!d.refresh_token)return msg("am","Login failed: authentication did not return a session.");
-    const ss=await sb.auth.setSession({access_token:d.access_token,refresh_token:d.refresh_token});
-    if(ss.error)return msg("am","Login failed: "+ss.error.message);
-    await start(ss.data.user);
-  }catch(err){console.error(err);msg("am","Login failed: "+(err?.message||"Authentication connection error."));}
-}
-async function signup(){
-  const n=$("rn").value.trim(),cc=$("rcc").value,p=$("rp").value.replace(/\D/g,"").trim(),e=$("re").value.trim().toLowerCase(),w=$("rw").value;
-  if(!n||!p||!e||!w)return msg("rm","Please complete all fields.");
-  if(w.length<6)return msg("rm","Password must be at least 6 characters.");
-  const phoneE164=cc+p;
-  try{
-    const r=await sb.functions.invoke("auth-gateway",{body:{action:"signup",full_name:n,country_code:cc,phone:p,phone_e164:phoneE164,email:e,password:w}});
-    const d=r.data||{};
-    if(r.error)return msg("rm","Registration failed: "+r.error.message);
-    if(d.error||d.error_description||d.msg)return msg("rm","Registration failed: "+(d.error_description||d.msg||d.error));
-    if(d.access_token&&d.refresh_token){
-      const ss=await sb.auth.setSession({access_token:d.access_token,refresh_token:d.refresh_token});
-      if(ss.error)return msg("rm","Account created, but sign-in failed: "+ss.error.message);
-      await start(ss.data.user);
-    }else{
-      msg("rm","Account created. Please check your email for confirmation, then sign in.",true);
-      back();
-    }
-  }catch(err){console.error(err);msg("rm","Registration failed: "+(err?.message||"Authentication connection error."));}
-}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="LUVKKUSH SILK MILLS PVT LTD textile order and billing portal">
+<title>LUVKKUSH SILK MILLS PVT LTD</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Arial,sans-serif;background:#f5f7fb;color:#172033}
+header{background:#111827;color:#fff;padding:18px 20px;position:sticky;top:0;z-index:5;box-shadow:0 2px 12px #0002}
+header b{font-size:20px}header span{opacity:.75;font-size:13px}
+main{max-width:1150px;margin:auto;padding:20px}.card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:20px;margin:0 0 16px;box-shadow:0 2px 8px #00000008}
+.auth{max-width:480px;margin:35px auto}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+label{display:block;font-weight:650;font-size:13px;margin:7px 0 4px}input,select{width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-size:15px}
+button{border:0;border-radius:10px;padding:10px 14px;margin:4px 4px 4px 0;font-weight:700;cursor:pointer;background:#6d28d9;color:#fff}button.secondary{background:#e5e7eb;color:#172033}button.ok{background:#15803d}button.danger{background:#dc2626}
+.hide{display:none!important}.msg{padding:11px 13px;border-radius:10px;margin:10px 0;background:#f1f5f9}.err{background:#fee2e2;color:#991b1b}.good{background:#dcfce7;color:#166534}
+table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:14px}th{background:#f8fafc} .scroll{overflow:auto}
+.stat{font-size:24px;font-weight:800}.muted{color:#64748b}.right{text-align:right}.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef2ff;font-size:12px;font-weight:700}
+@media(max-width:750px){main{padding:12px}.grid,.grid2{grid-template-columns:1fr}.card{padding:15px}header{padding:14px}.stat{font-size:20px}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4"></script>
+</head>
+<body>
+<header><b>LUVKKUSH SILK MILLS PVT LTD</b> <span>— Textile Order & Billing Portal</span></header>
+<main>
+<section id="auth" class="auth">
+<div class="card">
+<h2>Sign in</h2><div id="am"></div>
+<label>Email</label><input id="email" type="email" autocomplete="username">
+<label>Password</label><input id="password" type="password" autocomplete="current-password">
+<button id="loginBtn" onclick="login()">Sign in</button>
+<button class="secondary" onclick="showRegister()">Vendor registration</button>
+<button class="secondary" onclick="forgotPassword()">Forgot password</button>
+<div id="resetBox" class="hide"><hr><h3>Set new password</h3><label>New password</label><input id="newPassword" type="password"><button class="ok" onclick="changePassword()">Save password</button><div id="resetMsg"></div></div>
+</div>
+</section>
 
-</script></head><body><header>LUVKKUSH SILK MILLS PVT LTD <small>— Textile Order & Billing Portal</small></header><main class="wrap">
-<section id="auth" class="center"><div class="card"><h2>Sign in</h2><div id="am"></div><label>Email</label><input id="email" type="email"><label>Password</label><input id="password" type="password"><button onclick="login()">Sign in</button><button class="secondary" onclick="reg()">Vendor registration</button><button class="secondary" onclick="forgot()">Forgot password?</button><div id="resetbox" class="hide"><hr><h3>Set a new password</h3><label>New password</label><input id="newpw" type="password" minlength="6"><button class="ok" onclick="updatePassword()">Save new password</button><div id="resetm"></div></div></div></section>
-<section id="registration" class="center hide"><div class="card"><h2>Vendor registration</h2><div id="rm"></div><label>Full name</label><input id="rn"><label>Country code</label><select id="rcc"></select><label>WhatsApp phone number</label><input id="rp" type="tel" inputmode="numeric" placeholder="9876543210"><label>Email</label><input id="re" type="email"><label>Password</label><input id="rw" type="password"><button onclick="signup()">Create account</button><button class="secondary" onclick="back()">Back</button></div></section>
-<section id="app" class="hide"><div class="card"><button class="secondary" onclick="logout()">Logout</button><span id="who"></span></div>
-<div id="admin" class="hide"><div class="card"><h2>Admin dashboard</h2><p>Manage designs, rates, discounts, stock and orders.</p><div class="grid"><div><label>Design number</label><input id="pn"></div><div><label>Design name</label><input id="pname"></div><div><label>Colour</label><input id="pc"></div><div><label>Rate ₹</label><input id="pr" type="number" step=".01"></div><div><label>Trade discount %</label><input id="pt" type="number" step=".01" value="6"></div><div><label>Cash discount %</label><input id="px" type="number" step=".01" value="4"></div><div><label>Stock</label><input id="ps" type="number" min="0"></div></div><button onclick="save()">Add / update design</button><button class="secondary" onclick="clearP()">Clear</button><div id="pm"></div></div><div class="card"><h3>Design catalogue</h3><div style="overflow:auto"><table><thead><tr><th>Design</th><th>Name</th><th>Colour</th><th>Rate</th><th>Trade</th><th>Cash</th><th>Stock</th><th></th></tr></thead><tbody id="prows"></tbody></table></div></div><div class="card"><h3>Orders</h3><div style="overflow:auto"><table><thead><tr><th>Invoice</th><th>Vendor</th><th>Total</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody id="orows"></tbody></table></div></div></div>
-<div id="vendor" class="hide"><div class="card"><h2>Vendor order desk</h2><div id="vm"></div><div class="grid2"><div><label>Vendor name</label><input id="vn"></div><div><label>Contact</label><input id="vp"></div></div><div class="grid"><div><label>Design</label><select id="sel"></select></div><div><label>Quantity</label><input id="qty" type="number" min="1" value="1"></div><div style="align-self:end"><button onclick="add()">Add to order</button></div></div></div><div class="card"><h3>Current order</h3><div style="overflow:auto"><table><thead><tr><th>Design</th><th>Colour</th><th>Qty</th><th>Rate</th><th>Amount</th><th></th></tr></thead><tbody id="crows"></tbody></table></div><p>Subtotal ₹<b id="sub">0.00</b><br>Trade discount ₹<b id="td">0.00</b><br>Cash discount ₹<b id="cd">0.00</b><br><strong>Total ₹<b id="tot">0.00</b></strong></p><button class="ok" onclick="place()">Place order</button><button class="secondary" onclick="clearCart()">Clear</button><button class="secondary" onclick="wa()">Share on WhatsApp</button></div><div class="card"><h3>My order history</h3><div style="overflow:auto"><table><thead><tr><th>Invoice</th><th>Total</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody id="myrows"></tbody></table></div></div></div></section></main>
+<section id="register" class="auth hide">
+<div class="card">
+<h2>Create vendor account</h2><p class="muted">Use an email address you can access. If email confirmation is enabled, you will receive a confirmation message before your first login.</p>
+<div id="rm"></div>
+<label>Full name</label><input id="regName" autocomplete="name">
+<label>Country</label><select id="regCountry"></select>
+<label>WhatsApp / phone number</label><input id="regPhone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="9876543210">
+<label>Email</label><input id="regEmail" type="email" autocomplete="email">
+<label>Password</label><input id="regPassword" type="password" autocomplete="new-password">
+<button id="registerBtn" onclick="registerVendor()">Create account</button>
+<button class="secondary" onclick="showLogin()">Back to sign in</button>
+</div>
+</section>
+
+<section id="app" class="hide">
+<div class="card"><button class="secondary" onclick="logout()">Sign out</button> <span id="identity"></span></div>
+
+<div id="adminPanel" class="hide">
+<div class="card"><h2>Admin dashboard</h2><div class="grid">
+<div><div class="stat" id="designCount">0</div><div class="muted">Designs</div></div>
+<div><div class="stat" id="stockCount">0</div><div class="muted">Units in stock</div></div>
+<div><div class="stat" id="orderCount">0</div><div class="muted">Orders</div></div>
+</div></div>
+<div class="card"><h3>Add / edit design</h3><div id="pm"></div><div class="grid">
+<div><label>Design number</label><input id="designNo"></div>
+<div><label>Design name</label><input id="designName"></div>
+<div><label>Colour</label><input id="colour"></div>
+<div><label>Rate ₹</label><input id="rate" type="number" min="0" step=".01"></div>
+<div><label>Trade discount %</label><input id="trade" type="number" min="0" max="100" step=".01" value="6"></div>
+<div><label>Cash discount %</label><input id="cash" type="number" min="0" max="100" step=".01" value="4"></div>
+<div><label>Stock quantity</label><input id="stock" type="number" min="0" step="1"></div>
+</div><button onclick="saveProduct()">Save design</button><button class="secondary" onclick="clearProduct()">Clear</button></div>
+<div class="card"><h3>Design catalogue</h3><div class="scroll"><table><thead><tr><th>Design</th><th>Name</th><th>Colour</th><th>Rate</th><th>Trade</th><th>Cash</th><th>Stock</th><th>Actions</th></tr></thead><tbody id="productsRows"></tbody></table></div></div>
+<div class="card"><h3>Orders</h3><div class="scroll"><table><thead><tr><th>Invoice</th><th>Vendor</th><th>Total</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody id="ordersRows"></tbody></table></div></div>
+</div>
+
+<div id="vendorPanel" class="hide">
+<div class="card"><h2>Vendor order desk</h2><div id="vm"></div><div class="grid2">
+<div><label>Vendor name</label><input id="vendorName"></div>
+<div><label>Contact</label><input id="vendorPhone"></div>
+</div><div class="grid">
+<div><label>Design</label><select id="productSelect"></select></div>
+<div><label>Quantity</label><input id="quantity" type="number" min="1" step="1" value="1"></div>
+<div style="align-self:end"><button onclick="addToCart()">Add to order</button></div>
+</div></div>
+<div class="card"><h3>Current order</h3><div class="scroll"><table><thead><tr><th>Design</th><th>Colour</th><th>Qty</th><th>Rate</th><th>Amount</th><th></th></tr></thead><tbody id="cartRows"></tbody></table></div>
+<p>Subtotal ₹<b id="subtotal">0.00</b><br>Trade discount ₹<b id="tradeAmount">0.00</b><br>Cash discount ₹<b id="cashAmount">0.00</b><br><strong>Total ₹<b id="grandTotal">0.00</b></strong></p>
+<button class="ok" onclick="placeOrder()">Place order</button><button class="secondary" onclick="clearCart()">Clear</button><button class="secondary" onclick="shareWhatsApp()">Share order on WhatsApp</button></div>
+<div class="card"><h3>My order history</h3><div class="scroll"><table><thead><tr><th>Invoice</th><th>Total</th><th>Status</th><th>Date</th><th>Action</th></tr></thead><tbody id="myOrdersRows"></tbody></table></div></div>
+</div>
+</section>
+</main>
+
 <script>
-const sb=supabase.createClient("https://vybrscgwjzpgxbockwra.supabase.co","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5YnJzY2d3anpwZ3hib2Nrd3JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3ODEyODUsImV4cCI6MjEwNTM1NzI4NX0.HgSv7aMNI1Bj5oZ8uY1IGxREGegiOemI99-cnWfp4KM",{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});let me=null,prof=null,ps=[],cart=[],edit=null;
-const $=x=>document.getElementById(x),M=n=>Number(n||0).toFixed(2),E=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function msg(id,t,g=false){$(id).innerHTML=t?'<div class="msg '+(g?'good':'err')+'">'+E(t)+'</div>':''}
-function reg(){$("auth").classList.add("hide");$("registration").classList.remove("hide")}function back(){$("registration").classList.add("hide");$("auth").classList.remove("hide")}
-async function login(){const e=$("email").value.trim(),p=$("password").value;if(!e||!p)return msg("am","Enter your email and password.");try{const{data,error}=await sb.auth.signInWithPassword({email:e,password:p});if(error)return msg("am","Login failed: "+error.message);if(!data.user)return msg("am","Login failed: no user was returned.");await start(data.user)}catch(err){console.error("Login error",err);msg("am","Login connection error: "+(err&&err.message?err.message:"Unable to reach the authentication server.")+" Please check your internet connection, then refresh the page.")}}
-async function signup(){
-  const n=$("rn").value.trim(),cc=$("rcc").value,p=$("rp").value.replace(/\D/g,"").trim(),e=$("re").value.trim().toLowerCase(),w=$("rw").value;
-  if(!n||!p||!e||!w)return msg("rm","Please complete all fields.");
-  if(w.length<6)return msg("rm","Password must be at least 6 characters.");
-  const phoneE164=cc+p;
-  try{
-    const {data,error}=await sb.auth.signUp({
-      email:e,password:w,
-      options:{data:{full_name:n,phone:p,country_code:cc,phone_e164:phoneE164}}
-    });
-    if(error)return msg("rm","Registration failed: "+error.message);
-    if(data&&data.session){
-      await start(data.user);
-    }else{
-      msg("rm","Account created. Please check your email for confirmation, then sign in.",true);
-      back();
-    }
-  }catch(err){
-    console.error("Registration error",err);
-    msg("rm","Registration failed: "+(err&&err.message?err.message:"Unable to reach the authentication server."));
-  }
-}
-const COUNTRIES=[["Aruba","+297"],["Afghanistan","+93"],["Angola","+244"],["Anguilla","+1264"],["Ãland Islands","+358"],["Albania","+355"],["Andorra","+376"],["United Arab Emirates","+971"],["Argentina","+54"],["Armenia","+374"],["American Samoa","+1684"],["Antigua and Barbuda","+1268"],["Australia","+61"],["Austria","+43"],["Azerbaijan","+994"],["Burundi","+257"],["Belgium","+32"],["Benin","+229"],["Burkina Faso","+226"],["Bangladesh","+880"],["Bulgaria","+359"],["Bahrain","+973"],["Bahamas","+1242"],["Bosnia and Herzegovina","+387"],["Saint BarthÃ©lemy","+590"],["Belarus","+375"],["Belize","+501"],["Bermuda","+1441"],["Bolivia","+591"],["Brazil","+55"],["Barbados","+1246"],["Brunei","+673"],["Bhutan","+975"],["Botswana","+267"],["Central African Republic","+236"],["Canada","+1"],["Cocos (Keeling) Islands","+61"],["Switzerland","+41"],["Chile","+56"],["China","+86"],["Ivory Coast","+225"],["Cameroon","+237"],["DR Congo","+243"],["Republic of the Congo","+242"],["Cook Islands","+682"],["Colombia","+57"],["Comoros","+269"],["Cape Verde","+238"],["Costa Rica","+506"],["Cuba","+53"],["CuraÃ§ao","+5999"],["Christmas Island","+61"],["Cayman Islands","+1345"],["Cyprus","+357"],["Czechia","+420"],["Germany","+49"],["Djibouti","+253"],["Dominica","+1767"],["Denmark","+45"],["Dominican Republic","+1809"],["Dominican Republic","+1829"],["Dominican Republic","+1849"],["Algeria","+213"],["Ecuador","+593"],["Egypt","+20"],["Eritrea","+291"],["Western Sahara","+212"],["Spain","+34"],["Estonia","+372"],["Ethiopia","+251"],["Finland","+358"],["Fiji","+679"],["Falkland Islands","+500"],["France","+33"],["Faroe Islands","+298"],["Micronesia","+691"],["Gabon","+241"],["United Kingdom","+44"],["Georgia","+995"],["Guernsey","+44"],["Ghana","+233"],["Gibraltar","+350"],["Guinea","+224"],["Guadeloupe","+590"],["Gambia","+220"],["Guinea-Bissau","+245"],["Equatorial Guinea","+240"],["Greece","+30"],["Grenada","+1473"],["Greenland","+299"],["Guatemala","+502"],["French Guiana","+594"],["Guam","+1671"],["Guyana","+592"],["Hong Kong","+852"],["Honduras","+504"],["Croatia","+385"],["Haiti","+509"],["Hungary","+36"],["Indonesia","+62"],["Isle of Man","+44"],["India","+91"],["British Indian Ocean Territory","+246"],["Ireland","+353"],["Iran","+98"],["Iraq","+964"],["Iceland","+354"],["Israel","+972"],["Italy","+39"],["Jamaica","+1876"],["Jersey","+44"],["Jordan","+962"],["Japan","+81"],["Kazakhstan","+7"],["Kenya","+254"],["Kyrgyzstan","+996"],["Cambodia","+855"],["Kiribati","+686"],["Saint Kitts and Nevis","+1869"],["South Korea","+82"],["Kosovo","+383"],["Kuwait","+965"],["Laos","+856"],["Lebanon","+961"],["Liberia","+231"],["Libya","+218"],["Saint Lucia","+1758"],["Liechtenstein","+423"],["Sri Lanka","+94"],["Lesotho","+266"],["Lithuania","+370"],["Luxembourg","+352"],["Latvia","+371"],["Macau","+853"],["Saint Martin","+590"],["Morocco","+212"],["Monaco","+377"],["Moldova","+373"],["Madagascar","+261"],["Maldives","+960"],["Mexico","+52"],["Marshall Islands","+692"],["Macedonia","+389"],["Mali","+223"],["Malta","+356"],["Myanmar","+95"],["Montenegro","+382"],["Mongolia","+976"],["Northern Mariana Islands","+1670"],["Mozambique","+258"],["Mauritania","+222"],["Montserrat","+1664"],["Martinique","+596"],["Mauritius","+230"],["Malawi","+265"],["Malaysia","+60"],["Mayotte","+262"],["Namibia","+264"],["New Caledonia","+687"],["Niger","+227"],["Norfolk Island","+672"],["Nigeria","+234"],["Nicaragua","+505"],["Niue","+683"],["Netherlands","+31"],["Norway","+47"],["Nepal","+977"],["Nauru","+674"],["New Zealand","+64"],["Oman","+968"],["Pakistan","+92"],["Panama","+507"],["Pitcairn Islands","+64"],["Peru","+51"],["Philippines","+63"],["Palau","+680"],["Papua New Guinea","+675"],["Poland","+48"],["Puerto Rico","+1787"],["Puerto Rico","+1939"],["North Korea","+850"],["Portugal","+351"],["Paraguay","+595"],["Palestine","+970"],["French Polynesia","+689"],["Qatar","+974"],["RÃ©union","+262"],["Romania","+40"],["Russia","+7"],["Rwanda","+250"],["Saudi Arabia","+966"],["Sudan","+249"],["Senegal","+221"],["Singapore","+65"],["South Georgia","+500"],["Svalbard and Jan Mayen","+4779"],["Solomon Islands","+677"],["Sierra Leone","+232"],["El Salvador","+503"],["San Marino","+378"],["Somalia","+252"],["Saint Pierre and Miquelon","+508"],["Serbia","+381"],["South Sudan","+211"],["SÃ£o TomÃ© and PrÃ­ncipe","+239"],["Suriname","+597"],["Slovakia","+421"],["Slovenia","+386"],["Sweden","+46"],["Swaziland","+268"],["Sint Maarten","+1721"],["Seychelles","+248"],["Syria","+963"],["Turks and Caicos Islands","+1649"],["Chad","+235"],["Togo","+228"],["Thailand","+66"],["Tajikistan","+992"],["Tokelau","+690"],["Turkmenistan","+993"],["Timor-Leste","+670"],["Tonga","+676"],["Trinidad and Tobago","+1868"],["Tunisia","+216"],["Turkey","+90"],["Tuvalu","+688"],["Taiwan","+886"],["Tanzania","+255"],["Uganda","+256"],["Ukraine","+380"],["Uruguay","+598"],["United States","+1"],["Uzbekistan","+998"],["Vatican City","+3906698"],["Vatican City","+379"],["Saint Vincent and the Grenadines","+1784"],["Venezuela","+58"],["British Virgin Islands","+1284"],["United States Virgin Islands","+1340"],["Vietnam","+84"],["Vanuatu","+678"],["Wallis and Futuna","+681"],["Samoa","+685"],["Yemen","+967"],["South Africa","+27"],["Zambia","+260"],["Zimbabwe","+263"]];
-function fillCountries(){const s=$("rcc");if(!s||s.options.length)return;s.innerHTML=COUNTRIES.map(x=>'<option value="'+x[0]+'">'+x[1]+' ('+x[0]+')</option>').join("");s.value="+91";}
-fillCountries();
-async function signup(){const n=$("rn").value.trim(),cc=$("rcc").value,p=$("rp").value.replace(/\D/g,"").trim(),e=$("re").value.trim(),w=$("rw").value;if(!n||!e||p.length<6||w.length<6)return msg("rm","Enter name, email, a valid phone number and a password of at least 6 characters.");const phoneE164=cc+p;try{const{data,error}=await sb.auth.signUp({email:e,password:w,options:{data:{full_name:n,phone:p,country_code:cc,phone_e164:phoneE164}}});if(error)return msg("rm","Registration failed: "+error.message);if(data.session)await start(data.user);else msg("rm","Account created. Check the email confirmation if enabled, then sign in.",true)}catch(err){console.error("Signup error",err);msg("rm","Registration connection error: "+(err&&err.message?err.message:"Unable to reach the authentication server.")+" Please check your internet connection, then refresh the page.")}}
-async function forgot(){const e=$("email").value.trim();if(!e)return msg("am","Enter your email first.");const{error}=await sb.auth.resetPasswordForEmail(e);msg("am",error?"Reset request failed: "+error.message:"Password reset email sent. Open the email on this device, then set your new password here.",!error)} async function updatePassword(){const p=$("newpw").value;if(!p||p.length<6)return msg("resetm","Password must be at least 6 characters.");const{error}=await sb.auth.updateUser({password:p});if(error)return msg("resetm",error.message);msg("resetm","Password changed successfully. You can now sign in with your new password.",true);$("resetbox").classList.add("hide");}
-async function logout(){await sb.auth.signOut();location.reload()}
-async function start(u){me=u;$("auth").classList.add("hide");$("registration").classList.add("hide");$("app").classList.remove("hide");$("who").textContent=u.email||"";const{data,error}=await sb.from("profiles").select("*").eq("id",u.id).single();if(error)return msg("am","Profile error: "+error.message);prof=data;if(data.role==="admin"){$("admin").classList.remove("hide");$("vendor").classList.add("hide");await products();await orders()}else{$("vendor").classList.remove("hide");$("admin").classList.add("hide");$("vn").value=data.full_name||"";$("vp").value=data.phone||"";await products();await mine()}}
-async function products(){const{data,error}=await sb.from("products").select("*").order("design_number");if(error)return console.error(error);ps=data||[];$("prows").innerHTML=ps.map(p=>'<tr><td>'+E(p.design_number)+'</td><td>'+E(p.design_name)+'</td><td>'+E(p.colour)+'</td><td>₹'+M(p.rate)+'</td><td>'+p.trade_discount+'%</td><td>'+p.cash_discount+'%</td><td>'+p.stock_quantity+'</td><td><button class="secondary" onclick="editP('+p.id+')">Edit</button><button class="danger" onclick="delP('+p.id+')">Delete</button></td></tr>').join("")||'<tr><td colspan="8">No designs.</td></tr>';$("sel").innerHTML='<option value="">Select design</option>'+ps.map(p=>'<option value="'+p.id+'">'+E(p.design_number)+' — '+E(p.design_name)+' — '+E(p.colour)+' (₹'+M(p.rate)+', stock '+p.stock_quantity+')</option>').join("")}
-function editP(id){const p=ps.find(x=>x.id===id);edit=id;$("pn").value=p.design_number;$("pname").value=p.design_name;$("pc").value=p.colour;$("pr").value=p.rate;$("pt").value=p.trade_discount;$("px").value=p.cash_discount;$("ps").value=p.stock_quantity}
-function clearP(){edit=null;["pn","pname","pc","pr","ps"].forEach(x=>$(x).value="");$("pt").value=6;$("px").value=4}
-async function save(){const r={design_number:$("pn").value.trim(),design_name:$("pname").value.trim(),colour:$("pc").value.trim(),rate:Number($("pr").value),trade_discount:Number($("pt").value),cash_discount:Number($("px").value),stock_quantity:Number($("ps").value)};if(!r.design_number||!r.design_name||!r.colour||!Number.isFinite(r.rate))return msg("pm","Complete all design fields.");const{error}=edit?await sb.from("products").update(r).eq("id",edit):await sb.from("products").insert(r);if(error)return msg("pm",error.message);msg("pm","Design saved.",true);clearP();await products()}
-async function delP(id){if(!confirm("Delete this design?"))return;const{error}=await sb.from("products").delete().eq("id",id);if(error)alert(error.message);else products()}
-function add(){const p=ps.find(x=>String(x.id)===$("sel").value),q=Number($("qty").value);if(!p)return msg("vm","Select a design.");if(!Number.isInteger(q)||q<1)return msg("vm","Enter a valid quantity.");const e=cart.find(x=>x.product_id===p.id),n=(e?e.quantity:0)+q;if(n>p.stock_quantity)return msg("vm","Quantity exceeds current stock.");if(e)e.quantity=n;else cart.push({product_id:p.id,design_number:p.design_number,design_name:p.design_name,colour:p.colour,quantity:q,rate:Number(p.rate),trade:Number(p.trade_discount),cash:Number(p.cash_discount)});draw();msg("vm","")}
-function calc(){const s=cart.reduce((a,x)=>a+x.quantity*x.rate,0),tr=cart.length?Math.max(...cart.map(x=>x.trade)):0,cr=cart.length?Math.max(...cart.map(x=>x.cash)):0,t=s*tr/100,c=(s-t)*cr/100;return{s,t,c,total:s-t-c}}
-function draw(){$("crows").innerHTML=cart.map((x,i)=>'<tr><td>'+E(x.design_number)+'<br>'+E(x.design_name)+'</td><td>'+E(x.colour)+'</td><td>'+x.quantity+'</td><td>₹'+M(x.rate)+'</td><td>₹'+M(x.quantity*x.rate)+'</td><td><button class="danger" onclick="rm('+i+')">Remove</button></td></tr>').join("")||'<tr><td colspan="6">No items.</td></tr>';const t=calc();$("sub").textContent=M(t.s);$("td").textContent=M(t.t);$("cd").textContent=M(t.c);$("tot").textContent=M(t.total)}
-function rm(i){cart.splice(i,1);draw()}function clearCart(){cart=[];draw()}
-async function place(){
-if(!cart.length)return msg("vm","Add at least one design.");
-const name=$("vn").value.trim();
-if(!name)return msg("vm","Enter vendor name.");
-const items=cart.map(x=>({product_id:x.product_id,quantity:x.quantity}));
-const{data:orderId,error}=await sb.rpc("place_order",{p_vendor_name:name,p_vendor_phone:$("vp").value.trim(),p_items:items});
-if(error)return msg("vm",error.message);
-const{data:o,error:oe}=await sb.from("orders").select("*").eq("id",orderId).single();
-if(oe)return msg("vm","Order was placed, but invoice details could not be loaded: "+oe.message);
-const text="LUVKKUSH SILK MILLS PVT LTD\nInvoice: "+o.invoice_number+"\nVendor: "+name+"\n"+cart.map(x=>x.design_number+" - "+x.design_name+" - "+x.colour+" x "+x.quantity+" = ₹"+M(x.quantity*x.rate)).join("\n")+"\nTotal: ₹"+M(o.total);
-cart=[];draw();await products();await mine();const notify=await sendInvoiceNotifications(o.id);msg("vm","Order "+o.invoice_number+" placed successfully. Stock has been reserved."+((notify&&notify.results)?" Billing delivery: "+notify.results.map(x=>x.channel+"="+x.status).join(", "):""),true);
-window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank");
-invoice(o.id);
-}
-async function orders(){
-const{data,error}=await sb.from("orders").select("*").order("created_at",{ascending:false}).limit(100);
-if(error)return msg("pm",error.message);
-$("orows").innerHTML=(data||[]).map(o=>{
-const actions=o.status==="pending"
-? '<button class="ok" onclick="setStatus('+o.id+','+"'confirmed'"+')">Confirm</button><button class="danger" onclick="setStatus('+o.id+','+"'cancelled'"+')">Cancel</button>'
-: '';
-return '<tr><td>'+E(o.invoice_number)+'</td><td>'+E(o.vendor_name)+'</td><td>₹'+M(o.total)+'</td><td>'+E(o.status)+'</td><td>'+new Date(o.created_at).toLocaleString()+'</td><td><button class="secondary" onclick="invoice('+o.id+')">Invoice</button>'+actions+'</td></tr>'
-}).join("")||'<tr><td colspan="6">No orders.</td></tr>';
-}
-async function mine(){
-const{data,error}=await sb.from("orders").select("*").eq("vendor_id",me.id).order("created_at",{ascending:false}).limit(100);
-if(error)return;
-$("myrows").innerHTML=(data||[]).map(o=>'<tr><td>'+E(o.invoice_number)+'</td><td>₹'+M(o.total)+'</td><td>'+E(o.status)+'</td><td>'+new Date(o.created_at).toLocaleString()+'</td><td><button class="secondary" onclick="invoice('+o.id+')">Invoice</button></td></tr>').join("")||'<tr><td colspan="6">No orders.</td></tr>';
-}
-async function setStatus(id,status){
-if(!confirm(status==="cancelled"?"Cancel this order and return its stock?":"Confirm this order?"))return;
-const{error}=await sb.rpc("update_order_status",{p_order_id:id,p_status:status});
-if(error)return alert(error.message);
-await orders();await products();
-}
-async function invoice(orderId){
-const{data:o,error}=await sb.from("orders").select("*").eq("id",orderId).single();
-if(error)return alert(error.message);
-const{data:items,error:ie}=await sb.from("order_items").select("*").eq("order_id",orderId).order("id");
-if(ie)return alert(ie.message);
-const rows=(items||[]).map(x=>'<tr><td>'+E(x.design_number)+'</td><td>'+E(x.design_name)+'</td><td>'+E(x.colour)+'</td><td>'+x.quantity+'</td><td>₹'+M(x.rate)+'</td><td>₹'+M(x.line_total)+'</td></tr>').join("");
-const w=window.open("","_blank","width=900,height=700");
-if(!w)return alert("Please allow pop-ups to print the invoice.");
-w.document.write('<!doctype html><html><head><title>'+E(o.invoice_number)+'</title><style>body{font-family:Arial;margin:32px;color:#111}h1{margin-bottom:4px}small{color:#555}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #ccc;padding:8px;text-align:left}th{background:#eee}.right{text-align:right}.total{font-size:20px;font-weight:700}</style></head><body><h1>LUVKKUSH SILK MILLS PVT LTD</h1><small>Textile Order & Billing Invoice</small><p><b>Invoice:</b> '+E(o.invoice_number)+'<br><b>Date:</b> '+new Date(o.created_at).toLocaleString()+'<br><b>Vendor:</b> '+E(o.vendor_name)+'<br><b>Contact:</b> '+E(o.vendor_phone||"")+'<br><b>Status:</b> '+E(o.status)+'</p><table><thead><tr><th>Design No.</th><th>Design</th><th>Colour</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>'+rows+'</tbody></table><p class="right">Subtotal: ₹'+M(o.subtotal)+'<br>Trade discount: ₹'+M(o.trade_discount_amount)+'<br>Cash discount: ₹'+M(o.cash_discount_amount)+'</p><p class="right total">Total: ₹'+M(o.total)+'</p><button onclick="window.print()">Print / Save as PDF</button>
-</body></html>');
-w.document.close();
-}
-function wa(){if(!cart.length)return msg("vm","Add items first.");const t=calc();window.open("https://wa.me/?text="+encodeURIComponent("LUVKKUSH SILK MILLS PVT LTD\nVendor: "+$("vn").value+"\n"+cart.map(x=>x.design_number+" - "+x.design_name+" - "+x.colour+" x "+x.quantity).join("\n")+"\nTotal: ₹"+M(t.total)),"_blank")}
-sb.auth.onAuthStateChange((event)=>{if(event==="PASSWORD_RECOVERY"){$("auth").classList.remove("hide");$("app").classList.add("hide");$("resetbox").classList.remove("hide");$("am").innerHTML="";}});(async()=>{const{data}=await sb.auth.getSession();if(data.session)await start(data.session.user)})()/* gateway-auth-v1 */
-async function login(){
-  const e=$("email").value.trim().toLowerCase(), p=$("password").value;
-  if(!e||!p)return msg("am","Enter your email and password.");
-  try{
-    const r=await sb.functions.invoke("auth-gateway",{body:{action:"login",email:e,password:p}});
-    const d=r.data||{};
-    if(r.error)return msg("am","Login failed: "+r.error.message);
-    if(d.error||d.error_description||d.msg)return msg("am","Login failed: "+(d.error_description||d.msg||d.error));
-    if(!d.access_token||!d.refresh_token)return msg("am","Login failed: authentication did not return a session.");
-    const ss=await sb.auth.setSession({access_token:d.access_token,refresh_token:d.refresh_token});
-    if(ss.error)return msg("am","Login failed: "+ss.error.message);
-    await start(ss.data.user);
-  }catch(err){console.error(err);msg("am","Login failed: "+(err?.message||"Authentication connection error."));}
-}
-async function signup(){
-  const n=$("rn").value.trim(),cc=$("rcc").value,p=$("rp").value.replace(/\D/g,"").trim(),e=$("re").value.trim().toLowerCase(),w=$("rw").value;
-  if(!n||!p||!e||!w)return msg("rm","Please complete all fields.");
-  if(w.length<6)return msg("rm","Password must be at least 6 characters.");
-  const phoneE164=cc+p;
-  try{
-    const r=await sb.functions.invoke("auth-gateway",{body:{action:"signup",full_name:n,country_code:cc,phone:p,phone_e164:phoneE164,email:e,password:w}});
-    const d=r.data||{};
-    if(r.error)return msg("rm","Registration failed: "+r.error.message);
-    if(d.error||d.error_description||d.msg)return msg("rm","Registration failed: "+(d.error_description||d.msg||d.error));
-    if(d.access_token&&d.refresh_token){
-      const ss=await sb.auth.setSession({access_token:d.access_token,refresh_token:d.refresh_token});
-      if(ss.error)return msg("rm","Account created, but sign-in failed: "+ss.error.message);
-      await start(ss.data.user);
-    }else{
-      msg("rm","Account created. Please check your email for confirmation, then sign in.",true);
-      back();
-    }
-  }catch(err){console.error(err);msg("rm","Registration failed: "+(err?.message||"Authentication connection error."));}
+const SUPABASE_URL="https://vybrscgwjzpgxbockwra.supabase.co";
+const SUPABASE_KEY="sb_publishable_x-dnthfe6yi7Habx3KMIKA_ZoYkHxXZ";
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+let me=null,profile=null,productsList=[],cart=[],editingId=null;
+
+const $=id=>document.getElementById(id);
+const money=n=>Number(n||0).toFixed(2);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function message(id,text,good=false){$(id).innerHTML=text?'<div class="msg '+(good?'good':'err')+'">'+esc(text)+'</div>':'';}
+function showLogin(){$("register").classList.add("hide");$("auth").classList.remove("hide");message("rm","")}
+function showRegister(){$("auth").classList.add("hide");$("register").classList.remove("hide");message("rm","");fillCountries()}
+function fillCountries(){const s=$("regCountry");if(s.options.length)return;s.innerHTML=COUNTRIES.map(x=>'<option value="'+x[1]+'">'+x[1]+' — '+x[0]+'</option>').join("");s.value="+91"}
+
+async function registerVendor(){
+ const name=$("regName").value.trim(),cc=$("regCountry").value,phone=$("regPhone").value.replace(/\D/g,""),email=$("regEmail").value.trim().toLowerCase(),password=$("regPassword").value;
+ if(!name||!email||phone.length<6||password.length<6)return message("rm","Please enter your name, a valid phone number, email and a password of at least 6 characters.");
+ $("registerBtn").disabled=true;message("rm","Creating your account...",true);
+ try{
+  const {data,error}=await sb.auth.signUp({email,password,options:{data:{full_name:name,phone,country_code:cc,phone_e164:cc+phone}}});
+  if(error){console.error(error);return message("rm","Registration failed: "+error.message)}
+  if(data.user&&data.session){await loadApp(data.user)}
+  else {message("rm","Account created successfully. Check your email for confirmation, then sign in.",true);$("email").value=email;showLogin()}
+ }catch(e){console.error(e);message("rm","Registration failed: "+(e?.message||"Unable to contact Supabase Auth. Please try again."))}
+ finally{$("registerBtn").disabled=false}
 }
 
-</script></body></html>
+async function login(){
+ const email=$("email").value.trim().toLowerCase(),password=$("password").value;
+ if(!email||!password)return message("am","Enter your email and password.");
+ $("loginBtn").disabled=true;message("am","Signing in...",true);
+ try{
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error)return message("am","Login failed: "+error.message);
+  if(!data.user)return message("am","Login failed: no user was returned.");
+  await loadApp(data.user);
+ }catch(e){console.error(e);message("am","Login failed: "+(e?.message||"Unable to contact Supabase Auth."))}
+ finally{$("loginBtn").disabled=false}
+}
+
+async function forgotPassword(){
+ const email=$("email").value.trim().toLowerCase();
+ if(!email)return message("am","Enter your email first.");
+ const {error}=await sb.auth.resetPasswordForEmail(email);
+ message("am",error?"Password reset failed: "+error.message:"Password reset email sent. Check your inbox.",!error);
+}
+async function changePassword(){
+ const password=$("newPassword").value;
+ if(password.length<6)return message("resetMsg","Password must be at least 6 characters.");
+ const {error}=await sb.auth.updateUser({password});
+ message("resetMsg",error?error.message:"Password changed successfully.",!error);
+ if(!error)$("resetBox").classList.add("hide");
+}
+async function logout(){await sb.auth.signOut();location.reload()}
+
+async function loadApp(user){
+ me=user;$("auth").classList.add("hide");$("register").classList.add("hide");$("app").classList.remove("hide");$("identity").textContent=user.email||"";
+ const {data,error}=await sb.from("profiles").select("*").eq("id",user.id).single();
+ if(error){message("am","Profile could not be loaded: "+error.message);return}
+ profile=data;
+ if(profile.role==="admin"){ $("adminPanel").classList.remove("hide");$("vendorPanel").classList.add("hide");await refreshProducts();await refreshOrders();}
+ else {$("vendorPanel").classList.remove("hide");$("adminPanel").classList.add("hide");$("vendorName").value=profile.full_name||"";$("vendorPhone").value=profile.phone||"";await refreshProducts();await refreshMyOrders();}
+}
+
+async function refreshProducts(){
+ const {data,error}=await sb.from("products").select("*").order("design_number");
+ if(error){console.error(error);return}
+ productsList=data||[];
+ $("productsRows").innerHTML=productsList.map(p=>'<tr><td>'+esc(p.design_number)+'</td><td>'+esc(p.design_name)+'</td><td>'+esc(p.colour)+'</td><td>₹'+money(p.rate)+'</td><td>'+p.trade_discount+'%</td><td>'+p.cash_discount+'%</td><td>'+p.stock_quantity+'</td><td><button class="secondary" onclick="editProduct('+p.id+')">Edit</button><button class="danger" onclick="deleteProduct('+p.id+')">Delete</button></td></tr>').join("")||'<tr><td colspan="8">No designs.</td></tr>';
+ $("productSelect").innerHTML='<option value="">Select a design</option>'+productsList.filter(p=>p.stock_quantity>0).map(p=>'<option value="'+p.id+'">'+esc(p.design_number)+' — '+esc(p.design_name)+' — '+esc(p.colour)+' (₹'+money(p.rate)+', stock '+p.stock_quantity+')</option>').join("");
+ $("designCount").textContent=productsList.length;$("stockCount").textContent=productsList.reduce((a,p)=>a+Number(p.stock_quantity||0),0);
+}
+function clearProduct(){editingId=null;["designNo","designName","colour","rate","stock"].forEach(id=>$(id).value="");$("trade").value=6;$("cash").value=4}
+function editProduct(id){const p=productsList.find(x=>x.id===id);if(!p)return;editingId=id;$("designNo").value=p.design_number;$("designName").value=p.design_name;$("colour").value=p.colour;$("rate").value=p.rate;$("trade").value=p.trade_discount;$("cash").value=p.cash_discount;$("stock").value=p.stock_quantity}
+async function saveProduct(){
+ const p={design_number:$("designNo").value.trim(),design_name:$("designName").value.trim(),colour:$("colour").value.trim(),rate:Number($("rate").value),trade_discount:Number($("trade").value),cash_discount:Number($("cash").value),stock_quantity:Number($("stock").value)};
+ if(!p.design_number||!p.design_name||!p.colour||!Number.isFinite(p.rate)||p.rate<0)return message("pm","Complete the design details correctly.");
+ const r=editingId?await sb.from("products").update(p).eq("id",editingId):await sb.from("products").insert(p);
+ if(r.error)return message("pm",r.error.message);message("pm","Design saved.",true);clearProduct();await refreshProducts();
+}
+async function deleteProduct(id){if(!confirm("Delete this design?"))return;const {error}=await sb.from("products").delete().eq("id",id);if(error)alert(error.message);else refreshProducts()}
+
+function cartTotals(){const subtotal=cart.reduce((a,x)=>a+x.quantity*x.rate,0);const trade=cart.length?Math.max(...cart.map(x=>x.trade)):0;const cash=cart.length?Math.max(...cart.map(x=>x.cash)):0;const tradeAmount=subtotal*trade/100;const cashAmount=(subtotal-tradeAmount)*cash/100;return{subtotal,tradeAmount,cashAmount,total:subtotal-tradeAmount-cashAmount}}
+function drawCart(){$("cartRows").innerHTML=cart.map((x,i)=>'<tr><td>'+esc(x.design_number)+'<br><span class="muted">'+esc(x.design_name)+'</span></td><td>'+esc(x.colour)+'</td><td>'+x.quantity+'</td><td>₹'+money(x.rate)+'</td><td>₹'+money(x.quantity*x.rate)+'</td><td><button class="danger" onclick="removeCart('+i+')">Remove</button></td></tr>').join("")||'<tr><td colspan="6">No items.</td></tr>';const t=cartTotals();$("subtotal").textContent=money(t.subtotal);$("tradeAmount").textContent=money(t.tradeAmount);$("cashAmount").textContent=money(t.cashAmount);$("grandTotal").textContent=money(t.total)}
+function removeCart(i){cart.splice(i,1);drawCart()}
+function clearCart(){cart=[];drawCart()}
+function addToCart(){
+ const p=productsList.find(x=>String(x.id)===$("productSelect").value),q=Number($("quantity").value);
+ if(!p)return message("vm","Select a design.");if(!Number.isInteger(q)||q<1)return message("vm","Enter a whole-number quantity.");
+ const existing=cart.find(x=>x.product_id===p.id),newQty=(existing?.quantity||0)+q;
+ if(newQty>p.stock_quantity)return message("vm","Quantity exceeds available stock.");
+ if(existing)existing.quantity=newQty;else cart.push({product_id:p.id,design_number:p.design_number,design_name:p.design_name,colour:p.colour,quantity:q,rate:Number(p.rate),trade:Number(p.trade_discount),cash:Number(p.cash_discount)});
+ drawCart();message("vm","");
+}
+
+async function placeOrder(){
+ if(!cart.length)return message("vm","Add at least one design.");
+ const name=$("vendorName").value.trim();if(!name)return message("vm","Enter vendor name.");
+ const items=cart.map(x=>({product_id:x.product_id,quantity:x.quantity}));
+ const {data:orderId,error}=await sb.rpc("place_order",{p_vendor_name:name,p_vendor_phone:$("vendorPhone").value.trim(),p_items:items});
+ if(error)return message("vm","Order failed: "+error.message);
+ const {data:o,error:oe}=await sb.from("orders").select("*").eq("id",orderId).single();
+ if(oe)return message("vm","Order was placed, but the invoice could not be loaded: "+oe.message);
+ cart=[];drawCart();await refreshProducts();await refreshMyOrders();
+ message("vm","Order "+o.invoice_number+" placed successfully. Invoice total: ₹"+money(o.total),true);
+ try{await sb.functions.invoke("billing-notify",{body:{order_id:o.id}})}catch(e){console.warn("Billing notification skipped",e)}
+ openInvoice(o.id);
+}
+
+async function refreshOrders(){
+ const {data,error}=await sb.from("orders").select("*").order("created_at",{ascending:false}).limit(200);
+ if(error){message("pm",error.message);return}
+ $("orderCount").textContent=(data||[]).length;
+ $("ordersRows").innerHTML=(data||[]).map(o=>{let a='<button class="secondary" onclick="openInvoice('+o.id+')">Invoice</button>';if(o.status==="pending")a+='<button class="ok" onclick="changeOrderStatus('+o.id+',\'confirmed\')">Confirm</button><button class="danger" onclick="changeOrderStatus('+o.id+',\'cancelled\')">Cancel</button>';return '<tr><td>'+esc(o.invoice_number)+'</td><td>'+esc(o.vendor_name)+'</td><td>₹'+money(o.total)+'</td><td><span class="pill">'+esc(o.status)+'</span></td><td>'+new Date(o.created_at).toLocaleString()+'</td><td>'+a+'</td></tr>'}).join("")||'<tr><td colspan="6">No orders.</td></tr>';
+}
+async function refreshMyOrders(){
+ const {data,error}=await sb.from("orders").select("*").eq("vendor_id",me.id).order("created_at",{ascending:false}).limit(100);
+ if(error)return;
+ $("myOrdersRows").innerHTML=(data||[]).map(o=>'<tr><td>'+esc(o.invoice_number)+'</td><td>₹'+money(o.total)+'</td><td>'+esc(o.status)+'</td><td>'+new Date(o.created_at).toLocaleString()+'</td><td><button class="secondary" onclick="openInvoice('+o.id+')">Invoice</button></td></tr>').join("")||'<tr><td colspan="5">No orders yet.</td></tr>';
+}
+async function changeOrderStatus(id,status){if(!confirm(status==="cancelled"?"Cancel this order and restore stock?":"Confirm this order?"))return;const {error}=await sb.rpc("update_order_status",{p_order_id:id,p_status:status});if(error)return alert(error.message);await refreshOrders();await refreshProducts()}
+
+async function openInvoice(orderId){
+ const {data:o,error}=await sb.from("orders").select("*").eq("id",orderId).single();if(error)return alert(error.message);
+ const {data:items,error:ie}=await sb.from("order_items").select("*").eq("order_id",orderId).order("id");if(ie)return alert(ie.message);
+ const rows=(items||[]).map(x=>'<tr><td>'+esc(x.design_number)+'</td><td>'+esc(x.design_name)+'</td><td>'+esc(x.colour)+'</td><td>'+x.quantity+'</td><td>₹'+money(x.rate)+'</td><td>₹'+money(x.line_total)+'</td></tr>').join("");
+ const w=window.open("","_blank","width=900,height=700");if(!w)return alert("Please allow pop-ups for invoices.");
+ w.document.open();
+ w.document.write('<!doctype html><html><head><title>'+esc(o.invoice_number)+'</title><style>body{font-family:Arial;margin:35px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #ccc;padding:8px;text-align:left}th{background:#eee}.right{text-align:right}.total{font-size:20px;font-weight:700}</style></head><body><h1>LUVKKUSH SILK MILLS PVT LTD</h1><p><b>Invoice:</b> '+esc(o.invoice_number)+'<br><b>Date:</b> '+new Date(o.created_at).toLocaleString()+'<br><b>Vendor:</b> '+esc(o.vendor_name)+'<br><b>Contact:</b> '+esc(o.vendor_phone||"")+'<br><b>Status:</b> '+esc(o.status)+'</p><table><tr><th>Design No.</th><th>Design</th><th>Colour</th><th>Qty</th><th>Rate</th><th>Amount</th></tr>'+rows+'</table><p class="right">Subtotal: ₹'+money(o.subtotal)+'<br>Trade discount: ₹'+money(o.trade_discount_amount)+'<br>Cash discount: ₹'+money(o.cash_discount_amount)+'</p><p class="right total">Total: ₹'+money(o.total)+'</p><button onclick="window.print()">Print / Save as PDF</button></body></html>');
+ w.document.close();
+}
+
+function shareWhatsApp(){if(!cart.length)return message("vm","Add items first.");const t=cartTotals();const text="LUVKKUSH SILK MILLS PVT LTD\nVendor: "+$("vendorName").value+"\n"+cart.map(x=>x.design_number+" - "+x.design_name+" - "+x.colour+" x "+x.quantity).join("\n")+"\nTotal: ₹"+money(t.total);window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank")}
+sb.auth.onAuthStateChange((event,session)=>{if(event==="PASSWORD_RECOVERY"){$("auth").classList.remove("hide");$("app").classList.add("hide");$("resetBox").classList.remove("hide")}});
+(async()=>{fillCountries();const {data}=await sb.auth.getSession();if(data.session)await loadApp(data.session.user)})();
+</script>
+<script>
+const COUNTRIES=[["Aruba","+297"],["Afghanistan","+93"],["Angola","+244"],["Anguilla","+1264"],["Ãland Islands","+358"],["Albania","+355"],["Andorra","+376"],["United Arab Emirates","+971"],["Argentina","+54"],["Armenia","+374"],["American Samoa","+1684"],["Antigua and Barbuda","+1268"],["Australia","+61"],["Austria","+43"],["Azerbaijan","+994"],["Burundi","+257"],["Belgium","+32"],["Benin","+229"],["Burkina Faso","+226"],["Bangladesh","+880"],["Bulgaria","+359"],["Bahrain","+973"],["Bahamas","+1242"],["Bosnia and Herzegovina","+387"],["Saint BarthÃ©lemy","+590"],["Belarus","+375"],["Belize","+501"],["Bermuda","+1441"],["Bolivia","+591"],["Brazil","+55"],["Barbados","+1246"],["Brunei","+673"],["Bhutan","+975"],["Botswana","+267"],["Central African Republic","+236"],["Canada","+1"],["Cocos (Keeling) Islands","+61"],["Switzerland","+41"],["Chile","+56"],["China","+86"],["Ivory Coast","+225"],["Cameroon","+237"],["DR Congo","+243"],["Republic of the Congo","+242"],["Cook Islands","+682"],["Colombia","+57"],["Comoros","+269"],["Cape Verde","+238"],["Costa Rica","+506"],["Cuba","+53"],["CuraÃ§ao","+5999"],["Christmas Island","+61"],["Cayman Islands","+1345"],["Cyprus","+357"],["Czechia","+420"],["Germany","+49"],["Djibouti","+253"],["Dominica","+1767"],["Denmark","+45"],["Dominican Republic","+1809"],["Dominican Republic","+1829"],["Dominican Republic","+1849"],["Algeria","+213"],["Ecuador","+593"],["Egypt","+20"],["Eritrea","+291"],["Western Sahara","+212"],["Spain","+34"],["Estonia","+372"],["Ethiopia","+251"],["Finland","+358"],["Fiji","+679"],["Falkland Islands","+500"],["France","+33"],["Faroe Islands","+298"],["Micronesia","+691"],["Gabon","+241"],["United Kingdom","+44"],["Georgia","+995"],["Guernsey","+44"],["Ghana","+233"],["Gibraltar","+350"],["Guinea","+224"],["Guadeloupe","+590"],["Gambia","+220"],["Guinea-Bissau","+245"],["Equatorial Guinea","+240"],["Greece","+30"],["Grenada","+1473"],["Greenland","+299"],["Guatemala","+502"],["French Guiana","+594"],["Guam","+1671"],["Guyana","+592"],["Hong Kong","+852"],["Honduras","+504"],["Croatia","+385"],["Haiti","+509"],["Hungary","+36"],["Indonesia","+62"],["Isle of Man","+44"],["India","+91"],["British Indian Ocean Territory","+246"],["Ireland","+353"],["Iran","+98"],["Iraq","+964"],["Iceland","+354"],["Israel","+972"],["Italy","+39"],["Jamaica","+1876"],["Jersey","+44"],["Jordan","+962"],["Japan","+81"],["Kazakhstan","+7"],["Kenya","+254"],["Kyrgyzstan","+996"],["Cambodia","+855"],["Kiribati","+686"],["Saint Kitts and Nevis","+1869"],["South Korea","+82"],["Kosovo","+383"],["Kuwait","+965"],["Laos","+856"],["Lebanon","+961"],["Liberia","+231"],["Libya","+218"],["Saint Lucia","+1758"],["Liechtenstein","+423"],["Sri Lanka","+94"],["Lesotho","+266"],["Lithuania","+370"],["Luxembourg","+352"],["Latvia","+371"],["Macau","+853"],["Saint Martin","+590"],["Morocco","+212"],["Monaco","+377"],["Moldova","+373"],["Madagascar","+261"],["Maldives","+960"],["Mexico","+52"],["Marshall Islands","+692"],["Macedonia","+389"],["Mali","+223"],["Malta","+356"],["Myanmar","+95"],["Montenegro","+382"],["Mongolia","+976"],["Northern Mariana Islands","+1670"],["Mozambique","+258"],["Mauritania","+222"],["Montserrat","+1664"],["Martinique","+596"],["Mauritius","+230"],["Malawi","+265"],["Malaysia","+60"],["Mayotte","+262"],["Namibia","+264"],["New Caledonia","+687"],["Niger","+227"],["Norfolk Island","+672"],["Nigeria","+234"],["Nicaragua","+505"],["Niue","+683"],["Netherlands","+31"],["Norway","+47"],["Nepal","+977"],["Nauru","+674"],["New Zealand","+64"],["Oman","+968"],["Pakistan","+92"],["Panama","+507"],["Pitcairn Islands","+64"],["Peru","+51"],["Philippines","+63"],["Palau","+680"],["Papua New Guinea","+675"],["Poland","+48"],["Puerto Rico","+1787"],["Puerto Rico","+1939"],["North Korea","+850"],["Portugal","+351"],["Paraguay","+595"],["Palestine","+970"],["French Polynesia","+689"],["Qatar","+974"],["RÃ©union","+262"],["Romania","+40"],["Russia","+7"],["Rwanda","+250"],["Saudi Arabia","+966"],["Sudan","+249"],["Senegal","+221"],["Singapore","+65"],["South Georgia","+500"],["Svalbard and Jan Mayen","+4779"],["Solomon Islands","+677"],["Sierra Leone","+232"],["El Salvador","+503"],["San Marino","+378"],["Somalia","+252"],["Saint Pierre and Miquelon","+508"],["Serbia","+381"],["South Sudan","+211"],["SÃ£o TomÃ© and PrÃ­ncipe","+239"],["Suriname","+597"],["Slovakia","+421"],["Slovenia","+386"],["Sweden","+46"],["Swaziland","+268"],["Sint Maarten","+1721"],["Seychelles","+248"],["Syria","+963"],["Turks and Caicos Islands","+1649"],["Chad","+235"],["Togo","+228"],["Thailand","+66"],["Tajikistan","+992"],["Tokelau","+690"],["Turkmenistan","+993"],["Timor-Leste","+670"],["Tonga","+676"],["Trinidad and Tobago","+1868"],["Tunisia","+216"],["Turkey","+90"],["Tuvalu","+688"],["Taiwan","+886"],["Tanzania","+255"],["Uganda","+256"],["Ukraine","+380"],["Uruguay","+598"],["United States","+1"],["Uzbekistan","+998"],["Vatican City","+3906698"],["Vatican City","+379"],["Saint Vincent and the Grenadines","+1784"],["Venezuela","+58"],["British Virgin Islands","+1284"],["United States Virgin Islands","+1340"],["Vietnam","+84"],["Vanuatu","+678"],["Wallis and Futuna","+681"],["Samoa","+685"],["Yemen","+967"],["South Africa","+27"],["Zambia","+260"],["Zimbabwe","+263"]];
+</script>
+</body>
+</html>
