@@ -61,10 +61,10 @@ async function registerVendor(){
  $("registerBtn").disabled=true;msg("rm","Creating account...",true);
  try{
   const r=await sb.auth.signUp({email:e,password:w,options:{data:{full_name:n,phone:p,country_code:cc,phone_e164:cc+p}}});
-  if(r.error)return msg("rm","Registration failed: "+r.error.message);
+  if(r.error){console.error("Supabase signup error",r.error);return msg("rm","Registration failed: "+r.error.message);}
   if(r.data&&r.data.session){await start(r.data.user);return}
   $("email").value=e;msg("rm","Account created. Check your email for confirmation, then sign in.",true);showLogin();
- }catch(err){console.error(err);msg("rm","Registration failed: "+(err&&err.message?err.message:"Unable to reach Supabase Auth."))}
+ }catch(err){console.error("Registration exception",err);msg("rm","Registration failed: "+(err&&err.message?err.message:"Unable to reach Supabase Auth. Please check your internet connection."))}
  finally{$("registerBtn").disabled=false}
 }
 async function login(){
@@ -79,7 +79,12 @@ async function changePassword(){const p=$("newPassword").value;if(p.length<6)ret
 async function logout(){await sb.auth.signOut();location.reload()}
 async function start(u){
  me=u;$("auth").classList.add("hide");$("register").classList.add("hide");$("app").classList.remove("hide");$("identity").textContent=u.email||"";
- const r=await sb.from("profiles").select("*").eq("id",u.id).single();if(r.error)return msg("am","Profile error: "+r.error.message);profile=r.data;
+ const meta=u.user_metadata||{};
+ const admin=String(u.email||"").toLowerCase()==="luv.seth@gmail.com";
+ const payload={id:u.id,full_name:meta.full_name||String(u.email||"").split("@")[0],role:admin?"admin":"vendor",phone:meta.phone||null,country_code:meta.country_code||null,phone_e164:meta.phone_e164||null};
+ let r=await sb.from("profiles").upsert(payload,{onConflict:"id"}).select("*").single();
+ if(r.error){console.error(r.error);$("app").classList.add("hide");$("auth").classList.remove("hide");return msg("am","Account created, but your profile could not be initialized: "+r.error.message);}
+ profile=r.data;
  if(profile.role==="admin"){$("adminPanel").classList.remove("hide");$("vendorPanel").classList.add("hide");await refreshProducts();await refreshOrders()}
  else{$("vendorPanel").classList.remove("hide");$("adminPanel").classList.add("hide");$("vname").value=profile.full_name||"";$("vphone").value=profile.phone||"";await refreshProducts();await refreshMine()}
 }
