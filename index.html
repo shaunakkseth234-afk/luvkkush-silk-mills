@@ -60,11 +60,13 @@ async function registerVendor(){
  if(!n||!e||p.length<6||w.length<6)return msg("rm","Please complete all fields. Password must be at least 6 characters.");
  $("registerBtn").disabled=true;msg("rm","Creating account...",true);
  try{
-  const r=await sb.auth.signUp({email:e,password:w,options:{data:{full_name:n,phone:p,country_code:cc,phone_e164:cc+p}}});
-  if(r.error){console.error("Supabase signup error",r.error);return msg("rm","Registration failed: "+r.error.message);}
-  if(r.data&&r.data.session){await start(r.data.user);return}
-  $("email").value=e;msg("rm","Account created. Check your email for confirmation, then sign in.",true);showLogin();
- }catch(err){console.error("Registration exception",err);msg("rm","Registration failed: "+(err&&err.message?err.message:"Unable to reach Supabase Auth. Please check your internet connection."))}
+  const r=await fetch(SUPABASE_URL+"/functions/v1/vendor-register",{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},body:JSON.stringify({full_name:n,phone:p,country_code:cc,email:e,password:w})});
+  let d=null;try{d=await r.json()}catch(_){}
+  if(!r.ok||!d||!d.ok)return msg("rm","Registration failed: "+((d&&d.error)||"Registration service unavailable."));
+  const s=await sb.auth.signInWithPassword({email:e,password:w});
+  if(s.error)return msg("rm","Account created. Please sign in with the email and password you just registered.",true);
+  await start(s.data.user);
+ }catch(err){console.error("Registration exception",err);msg("rm","Registration failed: "+(err&&err.message?err.message:"Registration service unavailable."))}
  finally{$("registerBtn").disabled=false}
 }
 async function login(){
