@@ -73,9 +73,27 @@ async function registerVendor(){
 async function login(){
  const e=$("email").value.trim().toLowerCase(),p=$("password").value;if(!e||!p)return msg("am","Enter your email and password.");
  $("loginBtn").disabled=true;msg("am","Signing in...",true);
- try{const r=await sb.auth.signInWithPassword({email:e,password:p});if(r.error)return msg("am","Login failed: "+r.error.message);if(!r.data.user)return msg("am","Login failed: no user returned.");await start(r.data.user)}
- catch(err){console.error(err);msg("am","Login failed: "+(err&&err.message?err.message:"Unable to reach Supabase Auth."))}
- finally{$("loginBtn").disabled=false}
+ try{
+  if(!window.supabase||!sb)throw new Error("Authentication library did not load. Please refresh the page.");
+  let r=await sb.auth.signInWithPassword({email:e,password:p});
+  if(r.error){
+   console.warn("Supabase JS login failed; trying direct Auth endpoint",r.error);
+   const raw=await fetch(SUPABASE_URL+"/auth/v1/token?grant_type=password",{
+    method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},
+    body:JSON.stringify({email:e,password:p})
+   });
+   let d=null;try{d=await raw.json()}catch(_){}
+   if(!raw.ok||!d||!d.access_token)throw new Error((d&&d.error_description)||(d&&d.msg)||(d&&d.message)||r.error.message||"Authentication failed.");
+   const ss=await sb.auth.setSession({access_token:d.access_token,refresh_token:d.refresh_token});
+   if(ss.error)throw ss.error;
+   r={data:{user:ss.data.user}};
+  }
+  if(!r.data||!r.data.user)throw new Error("Authentication succeeded but no user session was returned.");
+  await start(r.data.user);
+ }catch(err){
+  console.error("Login error",err);
+  msg("am","Login failed: "+(err&&err.message?err.message:"Unable to reach Supabase Auth."));
+ }finally{$("loginBtn").disabled=false}
 }
 async function forgot(){const e=$("email").value.trim().toLowerCase();if(!e)return msg("am","Enter your email first.");const r=await sb.auth.resetPasswordForEmail(e,{redirectTo:window.location.origin+window.location.pathname});msg("am",r.error?"Password reset failed: "+r.error.message:"Password reset email sent. Check your email.",!r.error)}
 async function changePassword(){const p=$("newPassword").value;if(p.length<6)return msg("resetMsg","Password must be at least 6 characters.");const r=await sb.auth.updateUser({password:p});msg("resetMsg",r.error?r.error.message:"Password changed successfully.",!r.error)}
