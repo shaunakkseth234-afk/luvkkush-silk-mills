@@ -49,6 +49,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;bord
 const COUNTRIES=[["India","+91"],["Afghanistan","+93"],["Albania","+355"],["Algeria","+213"],["Andorra","+376"],["Angola","+244"],["Argentina","+54"],["Armenia","+374"],["Australia","+61"],["Austria","+43"],["Azerbaijan","+994"],["Bahamas","+1242"],["Bahrain","+973"],["Bangladesh","+880"],["Barbados","+1246"],["Belarus","+375"],["Belgium","+32"],["Belize","+501"],["Benin","+229"],["Bhutan","+975"],["Bolivia","+591"],["Bosnia and Herzegovina","+387"],["Botswana","+267"],["Brazil","+55"],["Brunei","+673"],["Bulgaria","+359"],["Burkina Faso","+226"],["Burundi","+257"],["Cambodia","+855"],["Cameroon","+237"],["Canada","+1"],["Cape Verde","+238"],["Chile","+56"],["China","+86"],["Colombia","+57"],["Costa Rica","+506"],["Croatia","+385"],["Cuba","+53"],["Cyprus","+357"],["Czechia","+420"],["Denmark","+45"],["Dominica","+1767"],["Dominican Republic","+1809"],["Ecuador","+593"],["Egypt","+20"],["Estonia","+372"],["Ethiopia","+251"],["Fiji","+679"],["Finland","+358"],["France","+33"],["Georgia","+995"],["Germany","+49"],["Ghana","+233"],["Greece","+30"],["Grenada","+1473"],["Guatemala","+502"],["Guyana","+592"],["Haiti","+509"],["Honduras","+504"],["Hong Kong","+852"],["Hungary","+36"],["Iceland","+354"],["Indonesia","+62"],["Iran","+98"],["Iraq","+964"],["Ireland","+353"],["Israel","+972"],["Italy","+39"],["Jamaica","+1876"],["Japan","+81"],["Jordan","+962"],["Kazakhstan","+7"],["Kenya","+254"],["Kuwait","+965"],["Kyrgyzstan","+996"],["Laos","+856"],["Latvia","+371"],["Lebanon","+961"],["Lesotho","+266"],["Liberia","+231"],["Libya","+218"],["Liechtenstein","+423"],["Lithuania","+370"],["Luxembourg","+352"],["Malaysia","+60"],["Maldives","+960"],["Malta","+356"],["Mauritius","+230"],["Mexico","+52"],["Moldova","+373"],["Monaco","+377"],["Mongolia","+976"],["Montenegro","+382"],["Morocco","+212"],["Mozambique","+258"],["Myanmar","+95"],["Namibia","+264"],["Nepal","+977"],["Netherlands","+31"],["New Zealand","+64"],["Nigeria","+234"],["North Macedonia","+389"],["Norway","+47"],["Oman","+968"],["Pakistan","+92"],["Panama","+507"],["Papua New Guinea","+675"],["Paraguay","+595"],["Peru","+51"],["Philippines","+63"],["Poland","+48"],["Portugal","+351"],["Qatar","+974"],["Romania","+40"],["Russia","+7"],["Rwanda","+250"],["Saudi Arabia","+966"],["Senegal","+221"],["Serbia","+381"],["Seychelles","+248"],["Singapore","+65"],["Slovakia","+421"],["Slovenia","+386"],["South Africa","+27"],["South Korea","+82"],["Spain","+34"],["Sri Lanka","+94"],["Sudan","+249"],["Suriname","+597"],["Sweden","+46"],["Switzerland","+41"],["Taiwan","+886"],["Tanzania","+255"],["Thailand","+66"],["Tunisia","+216"],["Turkey","+90"],["Uganda","+256"],["Ukraine","+380"],["United Arab Emirates","+971"],["United Kingdom","+44"],["United States","+1"],["Uruguay","+598"],["Uzbekistan","+998"],["Venezuela","+58"],["Vietnam","+84"],["Yemen","+967"],["Zambia","+260"],["Zimbabwe","+263"]];
 const SUPABASE_URL="https://vybrscgwjzpgxbockwra.supabase.co";
 const SUPABASE_KEY="sb_publishable_x-dnthfe6yi7Habx3KMIKA_ZoYkHxXZ";
+if(!window.supabase||typeof window.supabase.createClient!=="function"){document.body.innerHTML='<main style="max-width:700px;margin:40px auto;padding:20px;font-family:Arial"><div style="padding:20px;border:1px solid #fecaca;background:#fef2f2;border-radius:12px"><h2>Website could not start</h2><p>The secure login library did not load. Please refresh once. If this message remains, the hosting/CDN connection is the problem, not your account.</p></div></main>';throw new Error("Supabase JavaScript library failed to load.");}
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 let me=null,profile=null,plist=[],cart=[],editing=null;
 const $=id=>document.getElementById(id), money=n=>Number(n||0).toFixed(2), esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -61,9 +62,9 @@ async function registerVendor(){
  if(!n||!e||p.length<6||w.length<6)return msg("rm","Please complete all fields. Password must be at least 6 characters.");
  $("registerBtn").disabled=true;msg("rm","Creating account...",true);
  try{
-  const r=await fetch(SUPABASE_URL+"/functions/v1/vendor-register",{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},body:JSON.stringify({full_name:n,phone:p,country_code:cc,email:e,password:w})});
-  let d=null;try{d=await r.json()}catch(_){}
-  if(!r.ok||!d||!d.ok)throw new Error((d&&d.error)||"Registration service unavailable.");
+  const {data:d,error:invokeError}=await sb.functions.invoke("vendor-register",{body:{full_name:n,phone:p,country_code:cc,email:e,password:w}});
+  if(invokeError)throw new Error(invokeError.message||"Registration service unavailable.");
+  if(!d||!d.ok)throw new Error((d&&d.error)||"Registration service unavailable.");
   const {data,error}=await sb.auth.signInWithPassword({email:e,password:w});
   if(error)throw new Error("Account was created, but automatic sign-in failed: "+error.message);
   await start(data.user);
@@ -95,7 +96,7 @@ async function forgot(){
 async function start(u){
  me=u;
  const r=await sb.from("profiles").select("*").eq("id",u.id).maybeSingle();
- if(r.error)throw r.error;
+ if(r.error){console.error("Profile load error",r.error);throw new Error("Your account signed in, but your profile could not be loaded: "+r.error.message);}
  if(!r.data){
   const role=u.email&&u.email.toLowerCase()==="luv.seth@gmail.com"?"admin":"vendor";
   const p=await sb.from("profiles").upsert({id:u.id,full_name:u.user_metadata?.full_name||u.email,role:role},{onConflict:"id"}).select("*").single();
@@ -180,5 +181,16 @@ async function openInvoice(id){
 }
 function shareWhatsApp(){if(!cart.length)return msg("vm","Add items first.");const t=totals(),text="LUVKKUSH SILK MILLS PVT LTD\nVendor: "+$("vname").value+"\n"+cart.map(x=>x.design_number+" - "+x.design_name+" - "+x.colour+" - "+money(x.meters)+" m @ ₹"+money(x.rate)+"/m").join("\n")+"\nTotal: ₹"+money(t.total);window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank")}
 sb.auth.onAuthStateChange((event)=>{if(event==="PASSWORD_RECOVERY"){$("auth").classList.remove("hide");$("app").classList.add("hide");$("resetBox").classList.remove("hide")}});
-fillCountries();drawCart();(async()=>{const r=await sb.auth.getSession();if(r.data.session)await start(r.data.session.user)})();
+fillCountries();drawCart();
+(async()=>{
+ try{
+  const r=await sb.auth.getSession();
+  if(r.error)throw r.error;
+  if(r.data.session)await start(r.data.session.user);
+ }catch(err){
+  console.error("Startup error",err);
+  $("auth").classList.remove("hide");$("app").classList.add("hide");
+  msg("am","Website startup error: "+(err&&err.message?err.message:"Please refresh and try again."));
+ }
+})();
 </script></body></html>
